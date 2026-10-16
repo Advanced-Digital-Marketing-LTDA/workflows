@@ -1,0 +1,37 @@
+name: Test Coveralls
+
+on:
+  workflow_call:
+    inputs:
+      coverage-file:
+        description: Coverage file produced by make test-coverage in the calling repository.
+        required: false
+        type: string
+        default: coverage/lcov.info
+
+permissions:
+  contents: read
+
+jobs:
+  coveralls:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out caller repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: npm install, make test-coverage
+        run: |
+          npm install --ignore-scripts
+          make test-coverage
+
+      - name: Coveralls GitHub Action
+        uses: coverallsapp/github-action@v2.3.8
+        with:
+          file: ${{ inputs.coverage-file }}
