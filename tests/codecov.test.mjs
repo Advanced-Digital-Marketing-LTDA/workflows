@@ -31,20 +31,7 @@ test("uploads the caller report and identity, and reports upload failures", () =
   assert.match(workflow, /token: \$\{\{ secrets\.CODECOV_TOKEN \}\}/u);
   assert.match(workflow, /disable_search: true/u);
   assert.match(workflow, /fail_ci_if_error: true/u);
-});
-
-test("checks out caller git metadata without an action post-job hook", () => {
-  const workflow = readWorkflow();
-  assert.doesNotMatch(workflow, /actions\/checkout@[a-f0-9]{40}/u);
-  assert.match(workflow, /GITHUB_TOKEN: \$\{\{ github\.token \}\}/u);
-  assert.match(workflow, /git -C "\$GITHUB_WORKSPACE" init/u);
-  assert.match(
-    workflow,
-    /remote add origin \\\s+"https:\/\/github\.com\/\$\{GITHUB_REPOSITORY\}\.git"/u,
-  );
-  assert.match(workflow, /http\.extraheader=AUTHORIZATION: basic \$authorization/u);
-  assert.match(workflow, /fetch --no-tags --depth=1 origin "\$GITHUB_REF"/u);
-  assert.match(workflow, /checkout --detach FETCH_HEAD/u);
+  assert.match(workflow, /persist-credentials: false/u);
 });
 
 test("keeps fork PRs out of the secret-backed job and permissions read-only", () => {
