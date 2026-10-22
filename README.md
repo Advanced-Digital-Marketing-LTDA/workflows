@@ -71,3 +71,9 @@ commit SHA. The rules for adding it to a repository, protecting it and updating 
 ## Coveralls
 
 The existing `.github/workflows/coveralls.yml` remains available separately.
+
+## License
+
+Workflows is source-available under the [PolyForm Shield License 1.0.0](LICENSE).
+Commercial use is permitted when it complies with that license. For uses not
+permitted by PolyForm Shield, see [commercial licensing](COMMERCIAL.md).
