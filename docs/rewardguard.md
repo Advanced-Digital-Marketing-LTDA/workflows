@@ -38,13 +38,15 @@ Create these as **organization** secrets, available to the selected repositories
 ## Rule 3 — Files each repository needs
 
 Add all three in **one pull request**. The rewardguard check on that PR fails with `CHECKER_CONFIG_CHANGED`.
-That is expected: it means "a human must review this". The owner reviews and merges it.
+That is expected: it means "a human must review this".
+- **If the default branch already has a CODEOWNERS file naming you:** approving the PR clears the failure (Rule 7).
+- **If it doesn't yet:** this first PR is the one case where an org owner merges past the check.
 
 **`.rewardguard.toml`** at the repository root:
 
 ```toml
-# Read from the branch being checked. Any change to this file or to .github/ always fails
-# CHECKER_CONFIG_CHANGED, so every change gets owner review.
+# Read from the branch being checked. Any change to this file or to .github/ fails
+# CHECKER_CONFIG_CHANGED until a code owner approves the PR's current commit (Rule 7).
 run_tests = false            # true only if the test suite can run in a workflow (Rule 5)
 
 [thresholds]
@@ -66,6 +68,9 @@ name: rewardguard
 
 on:
   pull_request:
+  # re-run when a code owner approves, so an approved CI/config change can pass (Rule 7)
+  pull_request_review:
+    types: [submitted, dismissed]
 
 jobs:
   rewardguard:
@@ -107,8 +112,8 @@ After the setup PR is merged, add a branch ruleset (Settings → Rules → Rules
 1. **Require a pull request before merging**, with **Require review from Code Owners**.
 2. **Require status checks to pass**, adding the check named **`rewardguard / rewardguard`**. That is the
    caller's job name, then the shared workflow's job name.
-3. **No bypass for agents or bots.** Only org owners may bypass, and only to merge a PR that changes
-   `.github/` or `.rewardguard.toml` after reviewing it.
+3. **No bypass for agents or bots.** Org owners bypass only for the first setup PR of a repository that has
+   no CODEOWNERS yet. Every later CI or config change goes through code-owner approval (Rule 7).
 
 Add the required check **after** merging the setup PR, not before. Otherwise the setup PR blocks itself.
 
@@ -134,30 +139,77 @@ first, then roll it out:
    to the new `main` commit. Also update the action pins (`actions/checkout`, `actions/setup-node`) if
    needed, again to full SHAs with the version in a comment. Run `node --test tests/*.test.mjs`, then merge.
 3. **Update each repository.** Open a PR that bumps its caller's `workflows/...@<sha>` to the new commit of
-   this repository. That PR fails `CHECKER_CONFIG_CHANGED`. Review it and merge it.
+   this repository. That PR fails `CHECKER_CONFIG_CHANGED` until a code owner approves it (Rule 7). Approve
+   it, then merge.
 
 Never edit a repository's caller to use the reward-hacking-checker action directly. All repositories go
 through this shared workflow, so there is one place to update.
 
-## Rule 7 — Behaviour to expect
+## Rule 7 — Exceptions for CI and config changes
 
-- **Any PR that touches `.github/` or `.rewardguard.toml` fails** `CHECKER_CONFIG_CHANGED`, including
-  Dependabot updates to workflows. The config can't lower that rule or exclude those files. The owner
-  reviews it and merges.
+Any PR that touches `.github/` or `.rewardguard.toml` fails `CHECKER_CONFIG_CHANGED`, including Dependabot
+updates to workflows. The config can't lower that rule or exclude those files. CI does have to change
+sometimes, so there is exactly one way through: **code-owner approval**.
+
+**How the exception works.** The check passes, with `CHECKER_CONFIG_CHANGED` shown as a warning naming the
+approver, when:
+- a person named in the **default branch's** CODEOWNERS approved the PR
+  - only individual `@users` count, not teams
+  - the list comes from the default branch, so a PR can't add itself
+- the approval is on the PR's **current head commit**; any later push cancels it, so approve again
+- the approver is **not the PR's author**, and **not a bot**
+- they haven't since requested changes, and the approval wasn't dismissed
+
+The approval clears **only** `CHECKER_CONFIG_CHANGED`. Every other finding still fails. If GitHub can't be
+reached to check approvals, the check fails.
+
+**When an owner may approve:**
+- **Updating action versions or pinned SHAs.** This includes Dependabot and the Rule 6 bumps.
+- **Adding or fixing a workflow** that doesn't touch tests, test gates or rewardguard. Examples: deploy,
+  release, lint setup, caching.
+- **Tuning `.rewardguard.toml` after calibration** (thresholds, `judge_include`, rule severities). The PR
+  description must give the reason, for example "rule X flagged N honest PRs".
+- **Formatting-only changes** to CI files.
+
+**When an owner must not approve** (send it back, or make the change yourself in a separate owner-authored
+PR):
+- **The PR mixes CI or config changes with application or test changes.** An approval would wave the code
+  through too. Ask for the CI change in its own PR.
+- **It weakens a gate:**
+  - removes or skips a test job or step, or adds `continue-on-error`, `|| true` or `if: false`
+  - changes a required check's name
+  - lowers coverage thresholds
+- **It weakens rewardguard:**
+  - turns `run-tests` or `run_tests` off without the owner deciding so
+  - removes the `pull_request_review` trigger
+  - changes the shared-workflow pin to anything but a reviewed SHA from this repository
+  - removes secrets
+  - lowers thresholds with no stated reason
+- **It edits CODEOWNERS to remove an owner.**
+- **It was opened by an agent and its description doesn't explain why the CI change is needed.**
+
+**How to approve:** read the whole diff. Check that the PR description states why. Then use **Review changes
+→ Approve** on the latest commit. Rewardguard re-runs on the review and turns green. If anything is pushed
+after you approve, review the new commit and approve again.
+
+## Rule 8 — Other behaviour to expect
+
 - **Fork PRs get no secrets, so the check fails.** Never weaken the check for them. A maintainer reviews the
   change, then pushes it to a branch in the repository to run the check.
 - **Fail-closed:** a missing key, a Jev or Claude error, or a missing config fails the check. There is no
   fallback.
 - **Tune thresholds per repository** after a few weeks of real PRs. Do it with a PR, which the owner reviews.
 
-## Rule 8 — Checklist for a new repository
+## Rule 9 — Checklist for a new repository
 
 - [ ] The repository is eligible (Rule 1), and the org secrets are shared with it (Rule 2).
 - [ ] One PR adds `.rewardguard.toml`, the caller workflow, CODEOWNERS lines and any `AGENTS.md` approval,
       formatted with the repository's formatter (Rule 3).
 - [ ] On that PR, rewardguard ran and failed only with `CHECKER_CONFIG_CHANGED`. Any other finding or an
       error means the setup is wrong.
-- [ ] The owner merged it, then added the branch ruleset requiring `rewardguard / rewardguard` (Rule 4).
+- [ ] The owner approved it, and rewardguard turned green (or, with no CODEOWNERS on the default branch yet,
+      the owner merged past the check once). Then the owner added the branch ruleset requiring
+      `rewardguard / rewardguard` (Rule 4).
 - [ ] A later ordinary PR shows rewardguard passing or reporting real findings.
 
 ## Optional — Enforce it org-wide without per-repo callers
