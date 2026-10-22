@@ -50,7 +50,7 @@ jobs:
           node-version: ${{ inputs.node-version }}
           package-manager-cache: false # setup-node's auto npm cache fails on repos without a root lockfile
       - name: Run test suites (no secrets)
-        uses: Advanced-Digital-Marketing-LTDA/reward-hacking-checker@44aa13bbedf08cea4b9641f58b0aa347747b0551 # main, 2026-10-22
+        uses: Advanced-Digital-Marketing-LTDA/reward-hacking-checker@4c7c8244fb1fa3975ec970f42d17208b255301e0 # main, 2026-10-22
         with:
           mode: tests
 
@@ -75,7 +75,7 @@ jobs:
           node-version: ${{ inputs.node-version }}
           package-manager-cache: false # setup-node's auto npm cache fails on repos without a root lockfile
       - name: Judge the diff
-        uses: Advanced-Digital-Marketing-LTDA/reward-hacking-checker@44aa13bbedf08cea4b9641f58b0aa347747b0551 # main, 2026-10-22
+        uses: Advanced-Digital-Marketing-LTDA/reward-hacking-checker@4c7c8244fb1fa3975ec970f42d17208b255301e0 # main, 2026-10-22
         with:
           mode: check
           tests: ${{ inputs.run-tests && 'true' || 'false' }}
