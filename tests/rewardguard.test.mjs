@@ -35,6 +35,13 @@ test("pins every action to a full commit SHA", () => {
   }
 });
 
+test("turns off setup-node's automatic package-manager cache in both jobs", () => {
+  const workflow = readWorkflow();
+  for (const name of ["rewardguard-tests", "rewardguard"]) {
+    assert.match(job(workflow, name), /package-manager-cache: false/u);
+  }
+});
+
 test("runs branch tests only in a job without secrets or saved credentials", () => {
   const tests = job(readWorkflow(), "rewardguard-tests");
   assert.match(tests, /if: \$\{\{ inputs\.run-tests \}\}/u);

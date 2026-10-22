@@ -91,12 +91,16 @@ jobs:
 - **Format the file with the repository's own formatter before committing**, for example
   `npx prettier --write`. A repository whose CI runs a format check fails on unformatted workflows.
 
-**`.github/CODEOWNERS`** must give an owner the CI and the rewardguard config:
+**`.github/CODEOWNERS`** must give **at least two individual owners** the CI and the rewardguard config:
 
 ```
-/.github/          @Bonobo791
-/.rewardguard.toml @Bonobo791
+/.github/          @Bonobo791 @<second-owner>
+/.rewardguard.toml @Bonobo791 @<second-owner>
 ```
+
+- **Two owners, because nobody can approve their own PR** (Rule 7). PRs that AI agents open with an owner's
+  account count as that owner's PRs, so with one owner their CI changes could never pass.
+- Replace `<second-owner>` with a second person's GitHub username. Teams don't count.
 
 **Agent rules.** If the repository has an `AGENTS.md` (or similar) that limits which workflows may use
 provider credentials, add `.github/workflows/rewardguard.yml` to the list it allows. Say that it calls:
@@ -171,8 +175,8 @@ reached to check approvals, the check fails.
   description must give the reason, for example "rule X flagged N honest PRs".
 - **Formatting-only changes** to CI files.
 
-**When an owner must not approve** (send it back, or make the change yourself in a separate owner-authored
-PR):
+**When an owner must not approve** (send it back, or make the change in a separate PR for the other owner to
+approve):
 - **The PR mixes CI or config changes with application or test changes.** An approval would wave the code
   through too. Ask for the CI change in its own PR.
 - **It weakens a gate:**
@@ -203,6 +207,7 @@ after you approve, review the new commit and approve again.
 ## Rule 9 — Checklist for a new repository
 
 - [ ] The repository is eligible (Rule 1), and the org secrets are shared with it (Rule 2).
+- [ ] Two individual owners are chosen for CODEOWNERS (Rule 3).
 - [ ] One PR adds `.rewardguard.toml`, the caller workflow, CODEOWNERS lines and any `AGENTS.md` approval,
       formatted with the repository's formatter (Rule 3).
 - [ ] On that PR, rewardguard ran and failed only with `CHECKER_CONFIG_CHANGED`. Any other finding or an
