@@ -57,6 +57,17 @@ generation does not verify GitHub execution or Codecov receipt.
 
 Run the local workflow contract tests with `node --test tests/*.test.mjs`.
 
+## Rewardguard
+
+`.github/workflows/rewardguard.yml` fails a pull request when an AI coding agent may have gamed its tests.
+It runs the [reward-hacking-checker](https://github.com/Advanced-Digital-Marketing-LTDA/reward-hacking-checker)
+static checks and the Jev judge, with Claude Haiku explaining what Jev flags. It can also run the
+repository's test suites, in a separate job with no secrets.
+
+Callers pass `TYPESAFE_API_KEY` and `CLAUDE_CODE_OAUTH_TOKEN` (organization secrets) and pin this file by
+commit SHA. The rules for adding it to a repository, protecting it and updating it are in
+[`docs/rewardguard.md`](docs/rewardguard.md).
+
 ## Coveralls
 
 The existing `.github/workflows/coveralls.yml` remains available separately.
