@@ -1,0 +1,83 @@
+name: Rewardguard
+
+# Fails a pull request when an AI coding agent may have gamed its tests: static checks,
+# the Jev judge with Claude Haiku explanations, and (optionally) the repository's test suites.
+# Callers pin this file by commit SHA. Org rollout rules: docs/rewardguard.md.
+#
+# Two jobs, so the branch's code never runs where the secrets are:
+#   rewardguard-tests  runs the branch's test suites (only when run-tests is true). No secrets.
+#   rewardguard        judges the diff and the test results, holds the secrets, never runs branch code.
+
+on:
+  workflow_call:
+    inputs:
+      run-tests:
+        description: Run the repository's test suites. Must match run_tests in the repository's .rewardguard.toml.
+        required: false
+        type: boolean
+        default: false
+      node-version:
+        description: Node version for the test suites and the Claude Code CLI.
+        required: false
+        type: string
+        default: '22'
+    secrets:
+      TYPESAFE_API_KEY:
+        required: true
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  rewardguard-tests:
+    if: ${{ inputs.run-tests }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Check out pull request head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false # test code must not read the token from .git/config
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          package-manager-cache: false # setup-node's auto npm cache fails on repos without a root lockfile
+      - name: Run test suites (no secrets)
+        uses: Advanced-Digital-Marketing-LTDA/reward-hacking-checker@44aa13bbedf08cea4b9641f58b0aa347747b0551 # main, 2026-10-22
+        with:
+          mode: tests
+
+  rewardguard:
+    needs: rewardguard-tests
+    # Runs even when the tests job failed or was skipped: a skipped required check would count as passing.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out pull request head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Set up Node for the Claude Code CLI
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ inputs.node-version }}
+          package-manager-cache: false # setup-node's auto npm cache fails on repos without a root lockfile
+      - name: Judge the diff
+        uses: Advanced-Digital-Marketing-LTDA/reward-hacking-checker@44aa13bbedf08cea4b9641f58b0aa347747b0551 # main, 2026-10-22
+        with:
+          mode: check
+          tests: ${{ inputs.run-tests && 'true' || 'false' }}
+          typesafe-api-key: ${{ secrets.TYPESAFE_API_KEY }}
+          claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
