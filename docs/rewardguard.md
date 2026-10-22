@@ -85,7 +85,8 @@ jobs:
 - **Format the file with the repository's own formatter before committing**, for example
   `npx prettier --write`. A repository whose CI runs a format check fails on unformatted workflows.
 
-**`.github/CODEOWNERS`** gives an owner the CI and the rewardguard config:
+**`.github/CODEOWNERS`** asks the owner to review CI and rewardguard config changes (it requests the review;
+it doesn't block merging, see Rule 4):
 
 ```
 /.github/          @Bonobo791
@@ -103,7 +104,9 @@ Without this, review bots and agents will keep flagging the workflow.
 
 After the setup PR is merged, add a branch ruleset (Settings → Rules → Rulesets) on the default branch with:
 
-1. **Require a pull request before merging**, with **Require review from Code Owners**.
+1. **Require a pull request before merging.** Leave **Require review from Code Owners** off, and required
+   approvals at 0: nobody can approve their own PR, and agents open PRs under the owner's account, so with one
+   owner those PRs could never merge.
 2. **Require status checks to pass**, adding the check named **`rewardguard / rewardguard`**. That is the
    caller's job name, then the shared workflow's job name.
 3. **No bypass for agents or bots.** Org owners bypass only for the first setup PR (Rule 3).
