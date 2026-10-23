@@ -46,10 +46,6 @@ org owner merges this one PR past the check.
 # Read from the default branch: edits in a PR take effect only once it merges.
 run_tests = false            # true only if the test suite can run in a workflow (Rule 5)
 
-[thresholds]
-fail = 0.8
-warn = 0.5
-
 [judge]
 model = "jev-1.13.0"         # pin a version; jev-latest is rejected
 
@@ -154,7 +150,9 @@ Rewardguard doesn't flag changes to `.github/` or `.rewardguard.toml`, because C
   change, then pushes it to a branch in the repository to run the check.
 - **Fail-closed:** a missing key, a Jev or Claude error, or a missing config fails the check. There is no
   fallback.
-- **Tune thresholds per repository** after a few weeks of real PRs. Do it with a PR, which the owner reviews.
+- **Severity is fixed in rewardguard:** a Jev probability below 0.60 is not reported, 0.60–0.79 warns and 0.80
+  or higher fails. `[thresholds]` is rejected. If a rule misfires in a repository, turn it off under `[rules]`
+  (`RULE_NAME = "off"`) with a PR, which the owner reviews.
 
 ## Rule 9 — Checklist for a new repository
 
