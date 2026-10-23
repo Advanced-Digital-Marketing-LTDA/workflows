@@ -209,7 +209,9 @@ Content review does not replace review of credential access, workflow execution 
 - **Fail-closed:** a missing key, a Jev or Claude error, or a missing config fails the check. There is no
   fallback.
 - **Thresholds are fixed.** Below 0.60 is ignored, 0.60 to below 0.80 warns, and 0.80 or higher fails.
-  Configuration cannot change them. Review scoped rules and trusted context when findings need correction.
+  Configuration cannot change them: `[thresholds]` is rejected. Review scoped rules and trusted context when
+  findings need correction; if a rule misfires in a repository, turn it off under `[rules]`
+  (`RULE_NAME = "off"`) with a PR, which the owner reviews.
 
 ## Rule 9 — Checklist for a new repository
 
