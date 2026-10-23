@@ -1,21 +1,63 @@
 # Rewardguard rollout rules for ADM repositories
 
 How to add [rewardguard](https://github.com/Advanced-Digital-Marketing-LTDA/reward-hacking-checker) to a
-repository, keep it working, and update it. Rewardguard fails a pull request when an AI coding agent
-may have gamed its tests: deleted or skipped tests, weakened assertions, hard-coded answers, swallowed
-errors, and similar. This repository hosts the shared workflow,
+repository, keep it working, and update it. Rewardguard checks for test gaming, including deleted or
+skipped tests, weakened assertions, hard-coded answers and swallowed errors. The expanded check also
+reviews eligible content changes on pull requests and pushes. This repository hosts the shared workflow,
 [`.github/workflows/rewardguard.yml`](../.github/workflows/rewardguard.yml). Every repository calls that
 one file, so a fix or upgrade is made once and rolled out by bumping a pinned commit.
 
+**Publication and pinning:** the expanded behavior must first be published in the RewardGuard action.
+Then the shared workflow must pin that action revision, and callers must pin the corresponding
+published shared-workflow revision. Existing pins keep their existing behavior. The examples below
+show the caller setup for that rollout; they do not establish that publication or caller updates have
+been completed. See Rule 6 for the update order.
+
+## Content review
+
+Content review runs as part of the same action's `check` mode and the same reusable workflow. It does
+not need a second provider-bearing job or a separate ContentGuard caller.
+
+1. **Detect content first.** A deterministic gate identifies eligible changes such as prose, UI copy,
+   page metadata, structured data and publication controls. Changes with no content skip the content
+   phase without content-model calls; the existing code-integrity checks still apply.
+2. **Classify the task.** Jev decides whether an eligible change is a content task. A probability below
+   0.60 skips content checks. A probability of **0.60 or higher** selects applicable checks; the
+   classification itself is not a warning or failure.
+3. **Judge defects independently.** Each applicable claim, field or requirement receives its own
+   judgment. A defect probability below 0.60 is ignored, at least 0.60 and below 0.80 warns, and at
+   least 0.80 fails. A broad pack does not receive one aggregate quality score.
+4. **Explain with focused context.** Claude Haiku receives the corresponding focused rule/skill,
+   changed evidence and necessary trusted context. Product, brand and editorial instructions come
+   from the trusted base or explicit user instructions. Proposed content cannot change the rules for
+   its own review.
+
+Checks follow the actual artifact and available evidence. A short wording edit does not require a
+full-site audit or every marketing tactic. If a necessary source, current policy, inventory or render
+is unavailable, the affected check is reported as `not_evaluated` with a coverage reason. That is
+neither a content defect nor a claimed pass. A provider failure or malformed required model response
+remains an execution error and fails closed.
+
+The probability thresholds are fixed at **0.60 for warnings and 0.80 for failures**. Do not add
+`[thresholds]` or `[explainer] min_probability` to `.rewardguard.toml`; those settings are rejected.
+Improve trusted context or a scoped rule when real findings expose a problem.
+
+Pull requests compare their proposed changes with a resolved trusted base; pushes compare the pushed
+head with the action's resolved push base. Configuration and review instructions come from the trusted
+base, not the proposed head. The check report is written to the Actions job summary on both events;
+PR comments apply only to pull requests. The judging job does not execute branch code.
+
 ## Rule 1 — Which repositories
 
-- **Rewardguard is for repositories where AI agents open pull requests.**
-- **JavaScript/TypeScript projects get full coverage.** The static checks and the Jev questions are built for
-  Jest, Vitest and Playwright projects.
-- **Other languages get little coverage.**
+- **Rewardguard is for repositories where AI agents change code or content.** Callers choose which pull
+  requests and pushes trigger it.
+- **JavaScript/TypeScript projects get the intended test-integrity coverage.** The static checks and the
+  code-focused Jev questions are built for Jest, Vitest and Playwright projects.
+- **Other languages get limited code coverage.**
   - The static rules match JS/TS test patterns, so they will rarely fire.
   - Jev only judges files matched by `[paths] judge_include`. The default list is JS/TS only, so add your
-    language's extensions there.
+    language's extensions there. Content eligibility and artifact-specific review are separate from
+    these code-judge path settings.
 - **Skip archived repositories, and the `.github` profile repository.**
 
 ## Rule 2 — Organization secrets (once, by an org owner)
@@ -36,19 +78,15 @@ Create these as **organization** secrets, available to the selected repositories
 
 ## Rule 3 — Files each repository needs
 
-Add all three in **one pull request**. Rewardguard reads `.rewardguard.toml` from the default branch, so on
+Add all three in **one pull request**. Rewardguard reads `.rewardguard.toml` from the trusted base, so on
 this first PR the check fails with "`.rewardguard.toml` not found on the base commit". That is expected: an
 org owner merges this one PR past the check.
 
 **`.rewardguard.toml`** at the repository root:
 
 ```toml
-# Read from the default branch: edits in a PR take effect only once it merges.
+# Read from the trusted base: proposed config edits cannot change their own review.
 run_tests = false            # true only if the test suite can run in a workflow (Rule 5)
-
-[thresholds]
-fail = 0.8
-warn = 0.5
 
 [judge]
 model = "jev-1.13.0"         # pin a version; jev-latest is rejected
@@ -65,6 +103,7 @@ name: rewardguard
 
 on:
   pull_request:
+  push:
 
 jobs:
   rewardguard:
@@ -80,7 +119,10 @@ jobs:
 ```
 
 - Replace `<workflows-commit-sha>` with the full commit SHA of this repository's `main` that contains the
-  version you want.
+  version you want and pins a RewardGuard action revision with the required feature. The placeholder is
+  not a usable revision.
+- The caller selects events. This example runs on both pull requests and pushes; apply branch filters
+  if the repository's policy limits which pushes should be reviewed.
 - **Never use `@main` or a tag.** Anyone who can move them could change what runs with your secrets.
 - **Format the file with the repository's own formatter before committing**, for example
   `npx prettier --write`. A repository whose CI runs a format check fails on unformatted workflows.
@@ -115,8 +157,8 @@ Add the required check **after** merging the setup PR, not before. Otherwise the
 
 ## Rule 5 — Test runs
 
-- **Default: off** (`run_tests = false` and `run-tests: false`). Rewardguard then runs the static checks and
-  Jev/Haiku only.
+- **Default: off** (`run_tests = false` and `run-tests: false`). Rewardguard then runs the static checks,
+  code judging and applicable content review without executing the repository's tests.
 - **Turn them on only when the whole suite runs on a GitHub-hosted runner in reasonable time.** Set
   `run_tests = true`, add `install` and `[[suites]]` to `.rewardguard.toml` (see the
   [checker's example](https://github.com/Advanced-Digital-Marketing-LTDA/reward-hacking-checker/blob/main/examples/.rewardguard.toml)),
@@ -130,23 +172,35 @@ Add the required check **after** merging the setup PR, not before. Otherwise the
 Change rewardguard in [`reward-hacking-checker`](https://github.com/Advanced-Digital-Marketing-LTDA/reward-hacking-checker)
 first, then roll it out:
 
-1. **Update the checker.** Merge the change to `reward-hacking-checker` `main`.
-2. **Update this repository.** Open a PR that sets the shared workflow's `reward-hacking-checker@<sha>` pins
-   to the new `main` commit. Also update the action pins (`actions/checkout`, `actions/setup-node`) if
-   needed, again to full SHAs with the version in a comment. Run `node --test tests/*.test.mjs`, then merge.
-3. **Update each repository.** Open a PR that bumps its caller's `workflows/...@<sha>` to the new commit of
-   this repository, then merge it.
+1. **Publish the checker action change.** Merge the required implementation into
+   `reward-hacking-checker` and identify its published full commit SHA. Content support and push-base
+   handling must exist in that action revision before callers can use them.
+2. **Update this repository.** Open a PR that sets every shared-workflow
+   `reward-hacking-checker@<sha>` pin to that published revision, including the test and check jobs.
+   Include the required push/PR workflow handling. Update other action pins if needed, using full SHAs
+   with the version in a comment. Complete the repository's required checks, then merge and record the
+   resulting published shared-workflow SHA.
+3. **Update each repository.** Open a PR that bumps its caller's `workflows/...@<sha>` to that published
+   shared-workflow revision and adds the desired `push` trigger alongside `pull_request`. Keep the two
+   secrets explicitly named. Merge and inspect the resulting runs before calling that caller rolled out.
+
+A local checkout or documentation update does not publish either revision. New shared-workflow source
+with an old checker pin cannot provide the checker feature; a caller pinned to the old shared workflow
+also keeps the old behavior. Do not invent a replacement SHA or claim organization rollout without
+the actual publication and caller updates.
 
 Never edit a repository's caller to use the reward-hacking-checker action directly. All repositories go
 through this shared workflow, so there is one place to update.
 
 ## Rule 7 — CI and config changes
 
-Rewardguard doesn't flag changes to `.github/` or `.rewardguard.toml`, because CI sometimes has to change.
-- **Config edits can't loosen the PR they're in.** The config is read from the default branch, so a change
-  applies from the next PR after it merges.
-- **CI edits are not checked by rewardguard.** A PR could remove a test step or add `continue-on-error`
-  and still pass. Review CI changes yourself before merging, especially from agents.
+The code-integrity exclusions for `.github/` and `.rewardguard.toml` allow legitimate CI/config changes.
+Content review does not replace review of credential access, workflow execution or guard configuration.
+
+- **Config edits can't loosen their own review.** Configuration and rule context are read from the
+  trusted base. Proposed edits apply only when a later review uses them as trusted base context.
+- **Review CI changes yourself before merging.** Removing a test step or adding `continue-on-error`
+  needs human review even when Rewardguard reports no content or code defects.
 
 ## Rule 8 — Other behaviour to expect
 
@@ -154,7 +208,8 @@ Rewardguard doesn't flag changes to `.github/` or `.rewardguard.toml`, because C
   change, then pushes it to a branch in the repository to run the check.
 - **Fail-closed:** a missing key, a Jev or Claude error, or a missing config fails the check. There is no
   fallback.
-- **Tune thresholds per repository** after a few weeks of real PRs. Do it with a PR, which the owner reviews.
+- **Thresholds are fixed.** Below 0.60 is ignored, 0.60 to below 0.80 warns, and 0.80 or higher fails.
+  Configuration cannot change them. Review scoped rules and trusted context when findings need correction.
 
 ## Rule 9 — Checklist for a new repository
 
@@ -165,7 +220,10 @@ Rewardguard doesn't flag changes to `.github/` or `.rewardguard.toml`, because C
       Any other error means the setup is wrong.
 - [ ] An org owner merged it past the check once, then added the branch ruleset requiring
       `rewardguard / rewardguard` (Rule 4).
-- [ ] A later ordinary PR shows rewardguard passing or reporting real findings.
+- [ ] The checker action, shared workflow and caller pins contain the intended published feature revisions
+      (Rule 6); the caller has the desired pull-request and push triggers.
+- [ ] Later ordinary pull-request and push runs show Rewardguard passing, reporting real findings or
+      explicitly recording applicable content skips/coverage gaps.
 
 ## Optional — Enforce it org-wide without per-repo callers
 

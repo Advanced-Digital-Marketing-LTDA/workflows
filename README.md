@@ -59,13 +59,23 @@ Run the local workflow contract tests with `node --test tests/*.test.mjs`.
 
 ## Rewardguard
 
-`.github/workflows/rewardguard.yml` fails a pull request when an AI coding agent may have gamed its tests.
-It runs the [reward-hacking-checker](https://github.com/Advanced-Digital-Marketing-LTDA/reward-hacking-checker)
-static checks and the Jev judge, with Claude Haiku explaining what Jev flags. It can also run the
-repository's test suites, in a separate job with no secrets.
+`.github/workflows/rewardguard.yml` provides the shared
+[reward-hacking-checker](https://github.com/Advanced-Digital-Marketing-LTDA/reward-hacking-checker)
+action for pull requests and pushes. It checks for test gaming and adds content review to the same
+check path. Optional repository test suites run in a separate job with no secrets.
 
-Callers pass `TYPESAFE_API_KEY` and `CLAUDE_CODE_OAUTH_TOKEN` (organization secrets) and pin this file by
-commit SHA. The rules for adding it to a repository, protecting it and updating it are in
+Content review first detects content-bearing changes, then asks Jev whether they are a content task.
+At a task probability of **0.60 or higher**, Jev judges applicable defects independently: below 0.60 is
+ignored, 0.60 to below 0.80 warns, and 0.80 or higher fails. Claude Haiku explains each finding using
+only its focused skill and necessary trusted context. Missing evidence is reported as `not_evaluated`,
+not as a content defect or a claimed pass. These thresholds are fixed; `[thresholds]` configuration is
+unsupported.
+
+Callers select `pull_request` and `push` triggers, pass `TYPESAFE_API_KEY` and
+`CLAUDE_CODE_OAUTH_TOKEN` explicitly, and pin this file by full commit SHA. The expanded capability
+requires publishing the RewardGuard action change, updating the action pins in this shared workflow,
+then updating each caller's workflow pin. Existing pins do not acquire it automatically; this
+documentation does not establish that rollout has happened. The setup and update rules are in
 [`docs/rewardguard.md`](docs/rewardguard.md).
 
 ## Coveralls
