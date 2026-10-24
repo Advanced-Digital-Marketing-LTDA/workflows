@@ -72,6 +72,30 @@ jobs:
                   return json.load(response)
 
           prefix = '/repos/' + repository
+          branch_rules = api(prefix + '/rules/branches/v0')
+          rule_types = {rule['type'] for rule in branch_rules}
+          if not {'deletion', 'non_fast_forward', 'required_status_checks'} <= rule_types:
+              raise SystemExit('Apply the v0 branch protection rules before publication')
+          if not any(check['context'] == 'rewardguard / rewardguard'
+                     and check.get('integration_id') == 15368
+                     for rule in branch_rules if rule['type'] == 'required_status_checks'
+                     for check in rule['parameters']['required_status_checks']):
+              raise SystemExit('v0 must require the GitHub Actions RewardGuard check')
+          tag_rulesets = api(prefix + '/rulesets?per_page=100')
+          tag_protected = False
+          for ruleset in tag_rulesets:
+              if (ruleset['name'] == 'Prevent tags shadowing RewardGuard v0 channel'
+                      and ruleset['target'] == 'tag' and ruleset['enforcement'] == 'active'):
+                  detail = api(prefix + '/rulesets/' + str(ruleset['id']))
+                  refs = detail.get('conditions', {}).get('ref_name', {})
+                  kinds = {rule['type'] for rule in detail['rules']}
+                  tag_protected = (refs.get('include') == ['refs/tags/v0']
+                                   and not refs.get('exclude') and not detail.get('bypass_actors')
+                                   and {'creation', 'update', 'deletion'} <= kinds)
+                  if tag_protected:
+                      break
+          if not tag_protected:
+              raise SystemExit('Apply the exact v0 tag-shadowing ruleset before publication')
           main = api(prefix + '/git/ref/heads/main')['object']['sha']
           if candidate != main:
               print('A newer main commit exists; skip this stale candidate.')
