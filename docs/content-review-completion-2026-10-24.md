@@ -2,11 +2,15 @@
 
 ## Release and validation
 
-- Implementation: [RewardGuard #19](https://github.com/Advanced-Digital-Marketing-LTDA/RewardGuard/pull/19), latest reviewed head `91cc96f258c237681be7b86121ec178d88e2fbd8`. Existing CI and RewardGuard review passed.
+- Implementation: [RewardGuard #19](https://github.com/Advanced-Digital-Marketing-LTDA/RewardGuard/pull/19), latest head `526007078880f0160e2e03d8191d467934c41e8c`. Existing CI and RewardGuard review passed.
 - Shared workflow: [workflows #15](https://github.com/Advanced-Digital-Marketing-LTDA/workflows/pull/15), pinned by callers at `66d005ae6105310cbd4ef9c9395e26f51350e94f`.
 - Automatic trusted Git evidence, per-rule applicability/readiness, 87 bounded source alternatives, and individual GitHub content checks are implemented. Real external or runtime facts still require appropriate evidence.
 - GitHub check publication observed on [Moderaty rollout #270](https://github.com/Advanced-Digital-Marketing-LTDA/Moderaty/pull/270), including `contentguard / eligibility`.
-- Protected-main merges were blocked by automatic approval review because explicit merge authorization is required. No implementation, shared release or caller completion PR was merged by this work.
+- The owner explicitly approved dependency-ordered merges on 2026-10-24 after review and CI, allowing the documented first-setup missing-base-config error only. Other blocking failures must remain unmerged.
+
+## Live-validation hold
+
+The first live candidate classified all rule scopes as not applicable. The implementation now uses authored positive subject/representation criteria for all 243 rules and 87 source-only alternatives, separate from defect predicates. Live validation is being repeated before merge. An eligible content task with no evaluated propositions is explicitly unverified.
 
 ## Repo completion PRs
 
