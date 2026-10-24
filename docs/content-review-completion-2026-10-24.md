@@ -33,7 +33,7 @@ Earlier negative applicability routing incorrectly skipped every rule; the publi
 | workflows | [#16](https://github.com/Advanced-Digital-Marketing-LTDA/workflows/pull/16) | Upgrade |
 | RewardGuard | [#20](https://github.com/Advanced-Digital-Marketing-LTDA/RewardGuard/pull/20) | Upgrade |
 
-All completion PR callers pin the published release above and grant check publication only to their review job. Eleven rollouts have merged and their default-branch pins, permissions, and enabled content configuration were read back. Coolify is awaiting its application CI; Moderaty is held on a repeated mobile browser failure and its existing workflow-owner review gate.
+All completion PR callers pin the published release above and grant check publication only to their review job. Twelve rollouts have merged and their default-branch pins, permissions, and enabled content configuration were read back. Coolify's full CI completed and its setup merged. Moderaty's latest unit/browser CI passed; its workflow-owner review exception remains pending.
 
 Coolify's existing OSSAR job failed before scanning because its ESLint configuration did not parse TypeScript. The repair preserves scanner policy and rules, adds a TypeScript parser, and loads security configuration and integrity-locked dependencies from an immutable reviewed commit. It does not suppress scanner findings.
 
@@ -47,10 +47,10 @@ The existing Codex global hook uses the same staged-content gate when its Reward
 
 No application tests, agent guidance, secrets, or branch protections were changed by these repo completion updates. Existing provider secrets are working on observed eligible content runs. Required-check enforcement remains each repository's existing protection policy.
 
-## Rollout status at 20:38 UTC
+## Rollout status at 20:48 UTC
 
-Merged and default-branch configuration verified: SEO-Research, the-lippincott-team, Advanced-Digital-Marketing-LTDA, Top-Realtors-Cypress-TX, Site-Bootstrap-ADM, App-Bootstrap-ADM, Langlo, AI-Comment-Moderation, tina-cms-mcp, workflows, and RewardGuard.
+Merged and default-branch configuration verified: SEO-Research, the-lippincott-team, Advanced-Digital-Marketing-LTDA, Top-Realtors-Cypress-TX, Site-Bootstrap-ADM, App-Bootstrap-ADM, Langlo, AI-Comment-Moderation, tina-cms-mcp, coolify-mcp, workflows, and RewardGuard.
 
-- Coolify #13: scanner, drift guard, AI review, and external analyses pass; existing application mutation/smoke jobs remain in progress. Its sole completed review error is the approved first-setup missing-base configuration error.
-- Moderaty #272: workflow pin and product context prepared; repeated existing mobile navigation test failure is being diagnosed with failure-only Playwright artifact retention. No tests or production behavior have been changed. Its existing Merge Evidence policy also requires owner review for workflow edits; no gate was weakened.
+- Coolify #13 merged at `acb55774291365edc4aad169566fbaec9d93fddd` after both full application CI runs, mutation and smoke checks, scanner/drift guard, AI review, and external analyses passed. Its sole review error was the approved first-setup missing-base configuration exception. Default-branch content configuration and caller permissions/pin were read back.
+- Moderaty #272 remains unmerged at `785103b90a27e035b71c01c4526eb28357f9a900`. Its latest full unit/browser CI passed with application code and assertions unchanged. Prior mobile disclosure failures were intermittent; failure-only Playwright artifact retention now captures evidence if they recur. The sole current gate finding is C4 owner review for the RewardGuard caller pin and diagnostic workflow edit. The verifier has no owner-approval mechanism. The owner was asked for this additional specific exception; the earlier merge approval allowed only bootstrap configuration errors. No gate was weakened.
 - Final content replay head `102bbfc790a3039b77305464b09bd8c238c1395e` evaluated 23 propositions with zero content findings and three unverified visual/rendered evidence gaps. Individual check rows were confirmed through the GitHub API. The audit PR is closed, and no application content was merged by that replay.
