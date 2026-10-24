@@ -47,6 +47,10 @@ head with the action's resolved push base. Configuration and review instructions
 base, not the proposed head. The check report is written to the Actions job summary on both events;
 PR comments apply only to pull requests. The judging job does not execute branch code.
 
+Individual GitHub checks make content coverage visible: `contentguard / eligibility` always records classification and skip statistics. Applicable rules with evaluated propositions or evidence gaps receive `contentguard / CG_RULE_ID` checks, aggregated by rule across files and instances with the exact highest defect probability. Unrelated rules are omitted. Warnings at **0.60 ≤ p < 0.80** are neutral; **p ≥ 0.80** fails. Below 0.60 succeeds only for evaluated scopes without gaps. Evidence gaps and skipped scopes are explicitly unverified. Content evaluation errors fail a content check; coding errors remain in the aggregate result.
+
+The judge job **and every reusable-workflow caller** require `checks: write`, in addition to `contents: read` and `pull-requests: write`. The shared workflow grants this only to the judge job; branch test jobs retain read-only permissions. A missing permission or failed publication fails the aggregate visibly. Keep **`rewardguard / rewardguard`** as the required check: individual rule checks vary with applicability. The Action input `content-checks` defaults to `"true"`; standalone integrations can explicitly disable publication if they cannot grant the permission. The shared organization workflow enables it.
+
 ## Rule 1 — Which repositories
 
 - **Rewardguard is for repositories where AI agents change code or content.** Callers choose which pull
@@ -111,6 +115,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      checks: write
     with:
       run-tests: false # must match run_tests in .rewardguard.toml
     secrets:
