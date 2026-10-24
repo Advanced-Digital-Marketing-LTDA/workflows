@@ -13,6 +13,8 @@
 
 The workflows repository must receive `TYPESAFE_API_KEY` and `CLAUDE_CODE_OAUTH_TOKEN` through Dependabot secrets as well as its existing Actions secrets. See Settings → Secrets and variables → Dependabot. The existing caller explicitly requests checks/PR write permissions. Missing credentials remain a blocking CI failure; no gate is bypassed. The execution environment does not have these provider credentials, so this setup is not claimed complete.
 
+Channel protections are also pending: GitHub rejected the integration's ruleset creation with HTTP 403. Apply `docs/releases/v0-branch-rules.json` and `docs/releases/v0-tag-rules.json` with repository Administration write permission before merging caller migrations. These restrict force pushes/deletion, require the RewardGuard check, and prevent a tag shadowing the channel branch. The source publisher's fast-forward guard alone does not enforce repository-wide permissions.
+
 ## Review and execution status
 
 Python publisher syntax parsed. Independent static review found the Dependabot-secrets prerequisite, now documented. No tests were added or run locally; existing CI evaluates each PR. GitHub's documented permissions behavior was checked: explicit workflow permissions can increase Dependabot's default read-only token. Live publication remains unverified until the central workflow is merged and executes. This is a new protected-main PR set beyond prior approvals; merge permission is pending. Actual test, security, code and content failures remain blocking. Requested channel-reference changes require owner review rather than being treated as immutable pin changes.
@@ -36,3 +38,7 @@ Python publisher syntax parsed. Independent static review found the Dependabot-s
 | coolify-mcp | [#16](https://github.com/Advanced-Digital-Marketing-LTDA/coolify-mcp/pull/16) | Caller reference only |
 
 Merge the shared implementation first after review/CI/approval, inspect successful main promotion, then merge caller migrations under the same conditions. Previously open context-only upgrades in SEO-Research, Site-Bootstrap-ADM, App-Bootstrap-ADM, tina-cms-mcp and coolify-mcp can be closed as superseded after their channel migrations land.
+
+## Initial CI review
+
+Early adversarial-review failures in SEO-Research, Moderaty, the ADM site, Site-Bootstrap and Langlo object to the requested mutable channel. That is an intentional trust-model change requiring owner acceptance; the absence of repository protection is real and remains pending, with exact setup payloads supplied. Do not describe those checks as passing or merge past unrelated actual failures. CI is still running on other PRs.

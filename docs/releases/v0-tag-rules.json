@@ -1,0 +1,8 @@
+{
+  "name": "Prevent tags shadowing RewardGuard v0 channel",
+  "target": "tag",
+  "enforcement": "active",
+  "bypass_actors": [],
+  "conditions": {"ref_name": {"include": ["refs/tags/v0"], "exclude": []}},
+  "rules": [{"type": "creation"}, {"type": "update"}, {"type": "deletion"}]
+}

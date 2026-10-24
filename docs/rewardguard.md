@@ -185,6 +185,22 @@ secrets, required review CI fails and the upgrade must remain unmerged. Re-runni
 workflow does not change its secret access. See
 [GitHub's Dependabot Actions guidance](https://docs.github.com/en/code-security/reference/supply-chain-security/troubleshoot-dependabot/dependabot-on-actions).
 
+**One-time channel protection (repository owner):** apply the supplied exact-ref rulesets
+before merging caller migrations. The branch rules forbid force pushes and deletion and require
+the GitHub Actions `rewardguard / rewardguard` check on commits promoted to `v0`. The tag rules
+prevent anyone from creating a shadowing `v0` tag. No bypass actors are configured.
+
+```sh
+gh api --method POST repos/Advanced-Digital-Marketing-LTDA/workflows/rulesets --input docs/releases/v0-branch-rules.json
+gh api --method POST repos/Advanced-Digital-Marketing-LTDA/workflows/rulesets --input docs/releases/v0-tag-rules.json
+```
+
+These commands require an owner token with repository Administration write permission. The connected
+integration returned HTTP 403 when applying the branch rules and listing Dependabot secrets. The
+rules and credentials are not claimed configured. Inspect the repository Rules settings and
+Dependabot secret access before rollout; repository admin status alone does not grant an app those
+API scopes. After setup, the publisher uses the ordinary repository token and needs no admin token.
+
 1. **Publish a stable RewardGuard release.** Merge the implementation and publish a version such as
    `v0.2.0` in [RewardGuard](https://github.com/Advanced-Digital-Marketing-LTDA/RewardGuard).
 2. **Review one shared upgrade PR.** Dependabot checks daily and groups the two RewardGuard action
