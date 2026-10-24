@@ -6,17 +6,17 @@ Use PR title and description consistently to reduce false positives in code/cont
 
 Coverage uses the actual merge base of the PR target and reviewed head. Complete and incremental intervals are distinguished; partial pushes cannot disprove claims about earlier PR work. Supporting implementation/tests/types/metadata need not be itemized in the task summary. Missing or incomplete intent evidence is explicitly unverified.
 
-HOLLOW_FALLBACK still requires both lost required output and a consumer/check falsely accepting the substitute as success. Optional metadata absence and disclosed unverified statuses alone do not satisfy it. Git comparison failures disclose their reason class. No probability thresholds or independent security/integrity checks are disabled.
+The original HOLLOW_FALLBACK predicate and expected-value justification eligibility are preserved. Jev keeps its existing probabilities and 0.60/0.80 thresholds; Haiku remains explanation-only. No extra confirmation pass or empty-explanation dismissal was added.
 
 GitHub lookup uses a fixed host, no redirects, bounded responses and timeout. Tokens are stripped from the Haiku subprocess environment. Complete context is redacted and preserved within state budgets; insufficient room produces an explicit budget error. Whole-PR claim review also includes changed CI/checker text and requires complete textual evidence. Local explicit checks can use --title and --description/--description-file.
 
 ## Release and review
 
-- Action source: `c9d3aca1ba2fc665124522cb13ebae4d597f950b`.
-- Shared workflow source: `b9403b4ab4f5e3cf09ab7c4f934aab2d6723c14e`.
+- Action source: `ede5b730e4554d1f662df9ba19ef6962390acee0`.
+- Shared workflow source: `65be5c963ee7ff9de3a27108a16a8d7c4fb4c7a2`.
 - Python syntax parsed; independent static review found no remaining Critical/Important defects after fixes.
 - No tests were added or run locally. Existing repository CI runs normally.
-- The previous internal-document filter is preserved and its13repo default-branch caller pins were verified after deployment.
+- The previous internal-document filter is preserved and its 13 repo default-branch caller pins were verified after deployment.
 - This is a new release beyond the approved internal-document-filter PR set; protected-main merges need owner approval for these new PRs.
 - Merge implementation first, shared release second, then caller upgrades after review/CI. Only an explicit owner-review/C4 exception for the requested workflow pins is eligible; actual test/security/content failures remain unmerged.
 
@@ -40,4 +40,4 @@ GitHub lookup uses a fixed host, no redirects, bounded responses and timeout. To
 
 ## Current evidence and review status
 
-The merge-base correction is published. The revised source passed independent static review; Python syntax was parsed. Existing CI evaluates the actual release. Some Jev findings have no supporting Haiku lines; they have not been automatically cleared or downgraded. The owner was asked whether to add one Jev confirmation pass for unsupported findings, with unchanged probability thresholds. Until that decision and CI/review are complete, this new release is not authorized for protected-main merging. The prior internal-document filter deployment is complete across all13 repositories.
+The merge-base correction is published. The revised source passed independent static review; Python syntax was parsed. Existing CI evaluates the actual release. Some Jev findings have no supporting Haiku lines; they have not been automatically cleared or downgraded. The owner explicitly chose context fixes only and unchanged grading. Unit tests, Semgrep, and SonarCloud passed on the preceding revision; its PR RewardGuard check still failed. Final candidate CI is pending. This new release is not authorized for protected-main merging. The prior internal-document filter deployment is complete across all 13 repositories.
