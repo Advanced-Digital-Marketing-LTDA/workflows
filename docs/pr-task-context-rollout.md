@@ -8,12 +8,12 @@ Coverage uses the actual merge base of the PR target and reviewed head. Complete
 
 HOLLOW_FALLBACK still requires both lost required output and a consumer/check falsely accepting the substitute as success. Optional metadata absence and disclosed unverified statuses alone do not satisfy it. Git comparison failures disclose their reason class. No probability thresholds or independent security/integrity checks are disabled.
 
-GitHub lookup uses a fixed host, no redirects, bounded responses and timeout. Tokens are stripped from the Haiku subprocess environment. Context is redacted and bounded with opening/closing sections and visible omissions. Local explicit checks can use --title and --description/--description-file.
+GitHub lookup uses a fixed host, no redirects, bounded responses and timeout. Tokens are stripped from the Haiku subprocess environment. Complete context is redacted and preserved within state budgets; insufficient room produces an explicit budget error. Whole-PR claim review also includes changed CI/checker text and requires complete textual evidence. Local explicit checks can use --title and --description/--description-file.
 
 ## Release and review
 
-- Action source: `cb6c93092e6ed2cc9fadf7f5c107d0b3a0cd4a14`.
-- Shared workflow source: `3fef860068aafe62e5b35b13edbc280dc850f19c`.
+- Action source: `c9d3aca1ba2fc665124522cb13ebae4d597f950b`.
+- Shared workflow source: `b9403b4ab4f5e3cf09ab7c4f934aab2d6723c14e`.
 - Python syntax parsed; independent static review found no remaining Critical/Important defects after fixes.
 - No tests were added or run locally. Existing repository CI runs normally.
 - The previous internal-document filter is preserved and its13repo default-branch caller pins were verified after deployment.
@@ -37,3 +37,7 @@ GitHub lookup uses a fixed host, no redirects, bounded responses and timeout. To
 | AI-Comment-Moderation | [#22](https://github.com/Advanced-Digital-Marketing-LTDA/AI-Comment-Moderation/pull/22) | Caller pin only |
 | tina-cms-mcp | [#8](https://github.com/Advanced-Digital-Marketing-LTDA/tina-cms-mcp/pull/8) | Caller pin only |
 | coolify-mcp | [#15](https://github.com/Advanced-Digital-Marketing-LTDA/coolify-mcp/pull/15) | Caller pin only |
+
+## Current evidence and review status
+
+The merge-base correction is published. The revised source passed independent static review; Python syntax was parsed. Existing CI evaluates the actual release. Some Jev findings have no supporting Haiku lines; they have not been automatically cleared or downgraded. The owner was asked whether to add one Jev confirmation pass for unsupported findings, with unchanged probability thresholds. Until that decision and CI/review are complete, this new release is not authorized for protected-main merging. The prior internal-document filter deployment is complete across all13 repositories.
