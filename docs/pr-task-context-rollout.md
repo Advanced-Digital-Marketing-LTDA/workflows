@@ -12,8 +12,8 @@ GitHub lookup uses a fixed host, no redirects, bounded responses and timeout. To
 
 ## Release and review
 
-- Action source: `ede5b730e4554d1f662df9ba19ef6962390acee0`.
-- Shared workflow source: `65be5c963ee7ff9de3a27108a16a8d7c4fb4c7a2`.
+- Action source: `1a96ebb709f785e816b453dfa1a89c3b7be4f71c`.
+- Shared workflow source: `91003c38da83d57499bef6698b81fa53fb9d6c18`.
 - Python syntax parsed; independent static review found no remaining Critical/Important defects after fixes.
 - No tests were added or run locally. Existing repository CI runs normally.
 - The previous internal-document filter is preserved and its 13 repo default-branch caller pins were verified after deployment.
@@ -41,3 +41,7 @@ GitHub lookup uses a fixed host, no redirects, bounded responses and timeout. To
 ## Current evidence and review status
 
 The merge-base correction is published. The revised source passed independent static review; Python syntax was parsed. Existing CI evaluates the actual release. Some Jev findings have no supporting Haiku lines; they have not been automatically cleared or downgraded. The owner explicitly chose context fixes only and unchanged grading. Unit tests, Semgrep, and SonarCloud passed on the preceding revision; its PR RewardGuard check still failed. Final candidate CI is pending. This new release is not authorized for protected-main merging. The prior internal-document filter deployment is complete across all 13 repositories.
+
+## Chunk separator correction
+
+Diff-piece splitting reserves the newline appended during chunk assembly for both whole hunks and split pieces. This prevents exact-budget multi-line hunks from being reported as oversized individual lines. The final oversized-state guard and original grading remain unchanged. Python syntax parsed; no tests were added or run locally. Existing CI evaluates the new candidate.
