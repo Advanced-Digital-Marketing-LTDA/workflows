@@ -1,0 +1,137 @@
+name: Publish RewardGuard v0 channel
+
+on:
+  workflow_run:
+    workflows: [rewardguard]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-rewardguard-v0
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: >-
+      github.repository == 'Advanced-Digital-Marketing-LTDA/workflows' &&
+      ((github.event_name == 'workflow_run' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_repository.full_name == github.repository) ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      # No checkout, artifacts, branch scripts, provider credentials or model calls.
+      - name: Promote a published release after main CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHANNEL_REPOSITORY: ${{ github.repository }}
+          CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          GITHUB_API_URL: ${{ github.api_url }}
+        shell: bash
+        run: |
+          python -I - <<'PY'
+          import base64
+          import json
+          import os
+          import re
+          import urllib.error
+          import urllib.request
+
+          repository = os.environ['CHANNEL_REPOSITORY']
+          candidate = os.environ['CANDIDATE_SHA']
+          api_root = os.environ['GITHUB_API_URL'].rstrip('/')
+          if repository != 'Advanced-Digital-Marketing-LTDA/workflows' or not re.fullmatch(r'[0-9a-f]{40}', candidate):
+              raise SystemExit('Invalid channel repository or candidate commit')
+          if api_root != 'https://api.github.com':
+              raise SystemExit('Unexpected GitHub API host')
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          opener = urllib.request.build_opener(NoRedirect())
+
+          def api(path, method='GET', payload=None):
+              request = urllib.request.Request(
+                  api_root + path, method=method,
+                  data=None if payload is None else json.dumps(payload).encode(),
+                  headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                           'Accept': 'application/vnd.github+json',
+                           'Content-Type': 'application/json',
+                           'X-GitHub-Api-Version': '2022-11-28'})
+              with opener.open(request, timeout=30) as response:
+                  return json.load(response)
+
+          prefix = '/repos/' + repository
+          main = api(prefix + '/git/ref/heads/main')['object']['sha']
+          if candidate != main:
+              print('A newer main commit exists; skip this stale candidate.')
+              raise SystemExit(0)
+          runs = api(prefix + '/actions/workflows/rewardguard-check.yml/runs'
+                     '?event=push&status=success&head_sha=' + candidate + '&per_page=100')['workflow_runs']
+          if not any(run['head_sha'] == candidate and run['head_branch'] == 'main'
+                     and run['event'] == 'push' and run['conclusion'] == 'success'
+                     and run['path'] == '.github/workflows/rewardguard-check.yml'
+                     for run in runs):
+              raise SystemExit('Main RewardGuard CI has not passed for this candidate')
+
+          content = api(prefix + '/contents/.github/workflows/rewardguard.yml?ref=' + candidate)
+          source = base64.b64decode(content['content']).decode('utf-8')
+          references = re.findall(r'^\s*uses:\s*Advanced-Digital-Marketing-LTDA/RewardGuard@([^\s#]+)([^\n]*)$', source, re.M)
+          if len(references) != 2:
+              raise SystemExit('Expected exactly two RewardGuard action references')
+          release_pins = []
+          for sha, comment in references:
+              version = re.fullmatch(r'\s*#\s*(v0\.\d+\.\d+)\s*', comment)
+              if not re.fullmatch(r'[0-9a-f]{40}', sha) or version is None:
+                  raise SystemExit('Both jobs must pin a full release SHA with a # v0.x.y comment')
+              release_pins.append((sha, version.group(1)))
+          if release_pins[0] != release_pins[1]:
+              raise SystemExit('Test and judge action release pins disagree')
+          release_sha, version = release_pins[0]
+          release_prefix = '/repos/Advanced-Digital-Marketing-LTDA/RewardGuard'
+          release = api(release_prefix + '/releases/tags/' + version)
+          if release['draft'] or release['prerelease'] or not release.get('published_at'):
+              raise SystemExit('RewardGuard release must be published and stable')
+          tag = api(release_prefix + '/git/ref/tags/' + version)['object']
+          for _ in range(5):
+              if tag['type'] != 'tag':
+                  break
+              tag = api(release_prefix + '/git/tags/' + tag['sha'])['object']
+          if tag['type'] != 'commit' or tag['sha'] != release_sha:
+              raise SystemExit('Pinned commit does not match the published release tag')
+
+          # Tags take precedence over branches in uses:, so reject a shadowing tag.
+          try:
+              api(prefix + '/git/ref/tags/v0')
+          except urllib.error.HTTPError as error:
+              if error.code != 404:
+                  raise
+          else:
+              raise SystemExit('A v0 tag shadows the managed branch; resolve it before publication')
+          if api(prefix + '/git/ref/heads/main')['object']['sha'] != candidate:
+              print('Main advanced during release validation; skip this candidate.')
+              raise SystemExit(0)
+          try:
+              current = api(prefix + '/git/ref/heads/v0')['object']['sha']
+          except urllib.error.HTTPError as error:
+              if error.code != 404:
+                  raise
+              api(prefix + '/git/refs', 'POST', {'ref': 'refs/heads/v0', 'sha': candidate})
+          else:
+              if current != candidate:
+                  # Fast-forward only: a stale run cannot roll the channel backward.
+                  api(prefix + '/git/refs/heads/v0', 'PATCH', {'sha': candidate, 'force': False})
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write(f'Published workflows@v0 -> `{candidate}` using RewardGuard '
+                            f'`{version}` at `{release_sha}`.\n')
+          PY
