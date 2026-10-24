@@ -127,7 +127,7 @@ jobs:
           node-version: ${{ inputs.node-version }}
           package-manager-cache: false # setup-node's auto npm cache fails on repos without a root lockfile
       - name: Run test suites (no secrets)
-        uses: Advanced-Digital-Marketing-LTDA/RewardGuard@8d2a8cd9894211270c6d8812eabc78587937396a # exclude internal docs from content review
+        uses: Advanced-Digital-Marketing-LTDA/RewardGuard@922ecad6e5e51a21e3ccd6c491b6c0104ca255ed # revision-bound PR title and description context
         with:
           mode: tests
           base: ${{ needs.rewardguard-base.outputs.base }}
@@ -164,7 +164,7 @@ jobs:
           node-version: ${{ inputs.node-version }}
           package-manager-cache: false # setup-node's auto npm cache fails on repos without a root lockfile
       - name: Judge the diff
-        uses: Advanced-Digital-Marketing-LTDA/RewardGuard@8d2a8cd9894211270c6d8812eabc78587937396a # exclude internal docs from content review
+        uses: Advanced-Digital-Marketing-LTDA/RewardGuard@922ecad6e5e51a21e3ccd6c491b6c0104ca255ed # revision-bound PR title and description context
         with:
           mode: check
           base: ${{ needs.rewardguard-base.outputs.base }}
