@@ -32,7 +32,7 @@ Python publisher syntax parsed. Independent static review found the Dependabot-s
 | Top-Realtors-Cypress-TX | [#24](https://github.com/Advanced-Digital-Marketing-LTDA/Top-Realtors-Cypress-TX/pull/24) | Caller reference only |
 | Site-Bootstrap-ADM | [#9](https://github.com/Advanced-Digital-Marketing-LTDA/Site-Bootstrap-ADM/pull/9) | Caller reference only |
 | App-Bootstrap-ADM | [#10](https://github.com/Advanced-Digital-Marketing-LTDA/App-Bootstrap-ADM/pull/10) | Caller reference only |
-| Langlo | [#184](https://github.com/Advanced-Digital-Marketing-LTDA/Langlo/pull/184) | Caller reference only |
+| Langlo | [#184](https://github.com/Advanced-Digital-Marketing-LTDA/Langlo/pull/184) | Caller reference and existing exact-reference contract assertion |
 | AI-Comment-Moderation | [#23](https://github.com/Advanced-Digital-Marketing-LTDA/AI-Comment-Moderation/pull/23) | Caller reference only |
 | tina-cms-mcp | [#9](https://github.com/Advanced-Digital-Marketing-LTDA/tina-cms-mcp/pull/9) | Caller reference only |
 | coolify-mcp | [#16](https://github.com/Advanced-Digital-Marketing-LTDA/coolify-mcp/pull/16) | Caller reference only |
@@ -42,3 +42,5 @@ Merge the shared implementation first after review/CI/approval, inspect successf
 ## Initial CI review
 
 Early adversarial-review failures in SEO-Research, Moderaty, the ADM site, Site-Bootstrap and Langlo object to the requested mutable channel. That is an intentional trust-model change requiring owner acceptance; the absence of repository protection is real and remains pending, with exact setup payloads supplied. Do not describe those checks as passing or merge past unrelated actual failures. CI is still running on other PRs.
+
+Langlo's existing caller assertion required a SHA and failed on the requested @v0 reference. It now requires the exact owner-selected @v0 URL, preserving the one-use assertion and all other SHA checks; CI on that correction is pending. Moderaty's validation job also reports a browser assertion failure in the moderation-guide mobile test, independent of its C4 owner-review gate; it remains blocking and has not been weakened or waived.
