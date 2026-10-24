@@ -9,11 +9,11 @@
 
 ## Actual content validation
 
-The [Moderaty replay #271](https://github.com/Advanced-Digital-Marketing-LTDA/Moderaty/pull/271) reviewed an actual article change against configured trusted context: **23 evaluated propositions and 7 scoped evidence gaps**, with individual native content checks. Writing, editing, and proof checks were evaluated; remaining link, media, and metadata propositions need current rendered or visual evidence.
+The [Moderaty replay #271](https://github.com/Advanced-Digital-Marketing-LTDA/Moderaty/pull/271) reviewed an actual article change against configured trusted context: **23 evaluated propositions and 3 scoped evidence gaps**, with individual native content checks. Writing, editing, and proof checks were evaluated; remaining media and metadata propositions need current rendered or visual evidence.
 
 [Validation report](https://github.com/Advanced-Digital-Marketing-LTDA/Moderaty/pull/271#issuecomment-6388577639).
 
-Earlier negative applicability routing incorrectly skipped every rule; the published release routes using positive changed subjects instead. Eligible content with no evaluated propositions is explicitly unverified. Source files do not establish runtime, external truth, or visual observations. The replay is an audit only and must not merge; its separate coding findings do not change the content evidence result.
+Earlier negative applicability routing incorrectly skipped every rule; the published release routes using positive changed subjects instead. Eligible content with no evaluated propositions is explicitly unverified. Source files do not establish runtime, external truth, or visual observations. The replay was closed without merging; its separate coding findings do not change the content evidence result.
 
 ## Repository completion PRs
 
@@ -33,7 +33,7 @@ Earlier negative applicability routing incorrectly skipped every rule; the publi
 | workflows | [#16](https://github.com/Advanced-Digital-Marketing-LTDA/workflows/pull/16) | Upgrade |
 | RewardGuard | [#20](https://github.com/Advanced-Digital-Marketing-LTDA/RewardGuard/pull/20) | Upgrade |
 
-All completion callers now pin the published release above and grant check publication only to their review job. Repository CI is being checked before each merge.
+All completion PR callers pin the published release above and grant check publication only to their review job. Eleven rollouts have merged and their default-branch pins, permissions, and enabled content configuration were read back. Coolify is awaiting its application CI; Moderaty is held on a repeated mobile browser failure and its existing workflow-owner review gate.
 
 Coolify's existing OSSAR job failed before scanning because its ESLint configuration did not parse TypeScript. The repair preserves scanner policy and rules, adds a TypeScript parser, and loads security configuration and integrity-locked dependencies from an immutable reviewed commit. It does not suppress scanner findings.
 
@@ -46,3 +46,11 @@ Jev classifies content at p >= 0.60. Eligible rules get individual focused revie
 The existing Codex global hook uses the same staged-content gate when its RewardGuard installation is updated. The optional pre-commit hook uses `rewardguard check --staged --content-only`; see [RewardGuard setup](https://github.com/Advanced-Digital-Marketing-LTDA/RewardGuard#optional-pre-commit-content-hook). Local tool installation and credentials belong to each developer environment.
 
 No application tests, agent guidance, secrets, or branch protections were changed by these repo completion updates. Existing provider secrets are working on observed eligible content runs. Required-check enforcement remains each repository's existing protection policy.
+
+## Rollout status at 20:38 UTC
+
+Merged and default-branch configuration verified: SEO-Research, the-lippincott-team, Advanced-Digital-Marketing-LTDA, Top-Realtors-Cypress-TX, Site-Bootstrap-ADM, App-Bootstrap-ADM, Langlo, AI-Comment-Moderation, tina-cms-mcp, workflows, and RewardGuard.
+
+- Coolify #13: scanner, drift guard, AI review, and external analyses pass; existing application mutation/smoke jobs remain in progress. Its sole completed review error is the approved first-setup missing-base configuration error.
+- Moderaty #272: workflow pin and product context prepared; repeated existing mobile navigation test failure is being diagnosed with failure-only Playwright artifact retention. No tests or production behavior have been changed. Its existing Merge Evidence policy also requires owner review for workflow edits; no gate was weakened.
+- Final content replay head `102bbfc790a3039b77305464b09bd8c238c1395e` evaluated 23 propositions with zero content findings and three unverified visual/rendered evidence gaps. Individual check rows were confirmed through the GitHub API. The audit PR is closed, and no application content was merged by that replay.
