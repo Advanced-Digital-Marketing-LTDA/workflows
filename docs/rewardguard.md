@@ -5,13 +5,13 @@ repository, keep it working, and update it. Rewardguard checks for test gaming, 
 skipped tests, weakened assertions, hard-coded answers and swallowed errors. The expanded check also
 reviews eligible content changes on pull requests and pushes. This repository hosts the shared workflow,
 [`.github/workflows/rewardguard.yml`](../.github/workflows/rewardguard.yml). Every repository calls that
-one file, so a fix or upgrade is made once and rolled out by bumping a pinned commit.
+one file through the maintained `v0` branch, so a reviewed shared upgrade reaches every opted-in caller.
 
-**Publication and pinning:** the expanded behavior must first be published in the RewardGuard action.
-Then the shared workflow must pin that action revision, and callers must pin the corresponding
-published shared-workflow revision. Existing pins keep their existing behavior. The examples below
-show the caller setup for that rollout; they do not establish that publication or caller updates have
-been completed. See Rule 6 for the update order.
+**Release channel:** callers use `workflows/.github/workflows/rewardguard.yml@v0`. Inside that workflow,
+both RewardGuard action uses are pinned to the full SHA of one published stable `v0.x.y` release,
+with its version in a comment. Dependabot opens one grouped upgrade PR in this repository. After
+review and merge, successful main RewardGuard CI promotes `v0` automatically. No caller pin PRs
+are needed for later v0 releases. The first migration still requires one caller PR per repository.
 
 ## Content review
 
@@ -111,7 +111,7 @@ on:
 
 jobs:
   rewardguard:
-    uses: Advanced-Digital-Marketing-LTDA/workflows/.github/workflows/rewardguard.yml@<workflows-commit-sha>
+    uses: Advanced-Digital-Marketing-LTDA/workflows/.github/workflows/rewardguard.yml@v0
     permissions:
       contents: read
       pull-requests: write
@@ -123,12 +123,14 @@ jobs:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
 
-- Replace `<workflows-commit-sha>` with the full commit SHA of this repository's `main` that contains the
-  version you want and pins a RewardGuard action revision with the required feature. The placeholder is
-  not a usable revision.
+- `v0` is a maintained branch in this repository, not GitHub's Latest release label. Do not create
+  a `v0` tag: tags take precedence over branches when GitHub resolves `uses:`.
 - The caller selects events. This example runs on both pull requests and pushes; apply branch filters
   if the repository's policy limits which pushes should be reviewed.
-- **Never use `@main` or a tag.** Anyone who can move them could change what runs with your secrets.
+- **Trust boundary:** `@v0` intentionally allows reviewed central upgrades to change what runs with
+  caller secrets. Restrict writes to this repository and the `v0` branch to trusted maintainers and
+  the promotion automation. The RewardGuard action and other dependencies remain pinned by full SHA.
+  Repositories needing independent version approval may keep an immutable shared-workflow SHA instead.
 - **Format the file with the repository's own formatter before committing**, for example
   `npx prettier --write`. A repository whose CI runs a format check fails on unformatted workflows.
 
@@ -172,29 +174,62 @@ Add the required check **after** merging the setup PR, not before. Otherwise the
   rather than running tests next to the secrets.
 - **Branch tests run in a separate job with no secrets.** Never move them into the judging job.
 
-## Rule 6 — Updating rewardguard
+## Rule 6 — Updating RewardGuard
 
-Change rewardguard in [`reward-hacking-checker`](https://github.com/Advanced-Digital-Marketing-LTDA/reward-hacking-checker)
-first, then roll it out:
+**One-time Dependabot setup:** in this repository's Settings → Secrets and variables → Dependabot,
+add `TYPESAFE_API_KEY` and `CLAUDE_CODE_OAUTH_TOKEN` with the same provider credentials used by
+Actions (or grant this repository access to equivalent organization Dependabot secrets). Actions
+secrets are not available to Dependabot-triggered runs. The caller already explicitly grants
+`pull-requests: write` and `checks: write`; keep those permissions. Without the two Dependabot
+secrets, required review CI fails and the upgrade must remain unmerged. Re-running the bot's
+workflow does not change its secret access. See
+[GitHub's Dependabot Actions guidance](https://docs.github.com/en/code-security/reference/supply-chain-security/troubleshoot-dependabot/dependabot-on-actions).
 
-1. **Publish the checker action change.** Merge the required implementation into
-   `reward-hacking-checker` and identify its published full commit SHA. Content support and push-base
-   handling must exist in that action revision before callers can use them.
-2. **Update this repository.** Open a PR that sets every shared-workflow
-   `reward-hacking-checker@<sha>` pin to that published revision, including the test and check jobs.
-   Include the required push/PR workflow handling. Update other action pins if needed, using full SHAs
-   with the version in a comment. Complete the repository's required checks, then merge and record the
-   resulting published shared-workflow SHA.
-3. **Update each repository.** Open a PR that bumps its caller's `workflows/...@<sha>` to that published
-   shared-workflow revision and adds the desired `push` trigger alongside `pull_request`. Keep the two
-   secrets explicitly named. Merge and inspect the resulting runs before calling that caller rolled out.
+**One-time channel protection (repository owner):** apply the supplied exact-ref rulesets
+before merging caller migrations. The branch rules forbid force pushes and deletion and require
+the GitHub Actions `rewardguard / rewardguard` check on commits promoted to `v0`. The tag rules
+prevent anyone from creating a shadowing `v0` tag. No bypass actors are configured.
 
-A local checkout or documentation update does not publish either revision. New shared-workflow source
-with an old checker pin cannot provide the checker feature; a caller pinned to the old shared workflow
-also keeps the old behavior. Do not invent a replacement SHA or claim organization rollout without
-the actual publication and caller updates.
+```sh
+gh api --method POST repos/Advanced-Digital-Marketing-LTDA/workflows/rulesets --input docs/releases/v0-branch-rules.json
+gh api --method POST repos/Advanced-Digital-Marketing-LTDA/workflows/rulesets --input docs/releases/v0-tag-rules.json
+```
 
-Never edit a repository's caller to use the reward-hacking-checker action directly. All repositories go
+These commands require an owner token with repository Administration write permission. The connected
+integration returned HTTP 403 when applying the branch rules and listing Dependabot secrets. The
+rules and credentials are not claimed configured. Inspect the repository Rules settings and
+Dependabot secret access before rollout; repository admin status alone does not grant an app those
+API scopes. After setup, the publisher uses the ordinary repository token and needs no admin token.
+
+1. **Publish a stable RewardGuard release.** Merge the implementation and publish a version such as
+   `v0.2.0` in [RewardGuard](https://github.com/Advanced-Digital-Marketing-LTDA/RewardGuard).
+2. **Review one shared upgrade PR.** Dependabot checks daily and groups the two RewardGuard action
+   references into one PR. Both jobs must pin the same full release commit SHA, with a
+   `# v0.x.y` comment. Dependabot does not auto-merge. A maintainer may make the same update manually.
+3. **Merge after review and required CI.** The promotion workflow listens for successful push runs
+   of `rewardguard` on `main`. It independently checks the exact main commit's successful
+   `rewardguard-check.yml` run, matching SHA/version pins, and the published non-prerelease tag.
+4. **Promote centrally.** The automation fast-forwards the `v0` branch to that validated main commit.
+   All callers using `@v0` receive it on subsequent runs. Running or queued workflows can retain
+   their previously resolved revision; publication does not restart them. No consumer files are edited.
+5. **Inspect publication.** Open the `Publish RewardGuard v0 channel` workflow summary to see the
+   channel commit, RewardGuard version, and action SHA. `workflow_dispatch` on main can retry a
+   missed promotion, but requires the same successful main CI and release validation.
+
+The publisher has no checkout, artifacts, provider secrets or model calls. It reads GitHub metadata
+and writes only the channel branch with the repository token. Stale main candidates are skipped;
+failed checks, unpublished releases, mismatched jobs, a shadowing v0 tag, and non-fast-forward
+updates cannot promote. Keep the workflow name `rewardguard` and its file
+`.github/workflows/rewardguard-check.yml` aligned with the publisher if renaming them.
+
+For an emergency rollback, revert the shared action pins to a known published release through a
+reviewed main PR. Its later successful main commit can fast-forward `v0`; do not force the channel
+backward. A future `v1` channel requires a separate explicit migration.
+
+**Scope:** this channel updates CI callers only. Local pipx installations, Codex hook executables,
+and optional pre-commit `rev:` pins are separate installations and do not auto-upgrade.
+
+Never edit a repository's caller to use the RewardGuard action directly. All opted-in repositories go
 through this shared workflow, so there is one place to update.
 
 ## Rule 7 — CI and config changes

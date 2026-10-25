@@ -2,7 +2,7 @@ name: Rewardguard
 
 # Reviews pull requests and pushes for test gaming and configured content defects:
 # the Jev judge with Claude Haiku explanations, and (optionally) the repository's test suites.
-# Callers pin this file by commit SHA. Org rollout rules: docs/rewardguard.md.
+# Callers follow the reviewed v0 branch; the action below stays pinned by release SHA. Org rollout rules: docs/rewardguard.md.
 #
 # Resolve immutable baseline/head commits in a job with no branch execution or secrets.
 # Keep branch tests and the judge in separate jobs:
@@ -127,7 +127,7 @@ jobs:
           node-version: ${{ inputs.node-version }}
           package-manager-cache: false # setup-node's auto npm cache fails on repos without a root lockfile
       - name: Run test suites (no secrets)
-        uses: Advanced-Digital-Marketing-LTDA/RewardGuard@1a96ebb709f785e816b453dfa1a89c3b7be4f71c # complete PR intent and explicit state-budget errors
+        uses: Advanced-Digital-Marketing-LTDA/RewardGuard@765e470fb00e349101180160130fb80e9e8b2dfd # v0.2.0
         with:
           mode: tests
           base: ${{ needs.rewardguard-base.outputs.base }}
@@ -164,7 +164,7 @@ jobs:
           node-version: ${{ inputs.node-version }}
           package-manager-cache: false # setup-node's auto npm cache fails on repos without a root lockfile
       - name: Judge the diff
-        uses: Advanced-Digital-Marketing-LTDA/RewardGuard@1a96ebb709f785e816b453dfa1a89c3b7be4f71c # complete PR intent and explicit state-budget errors
+        uses: Advanced-Digital-Marketing-LTDA/RewardGuard@765e470fb00e349101180160130fb80e9e8b2dfd # v0.2.0
         with:
           mode: check
           base: ${{ needs.rewardguard-base.outputs.base }}

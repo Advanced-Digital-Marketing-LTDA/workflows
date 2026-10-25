@@ -72,11 +72,12 @@ not as a content defect or a claimed pass. These thresholds are fixed; `[thresho
 unsupported.
 
 Callers select `pull_request` and `push` triggers, pass `TYPESAFE_API_KEY` and
-`CLAUDE_CODE_OAUTH_TOKEN` explicitly, and pin this file by full commit SHA. The expanded capability
-requires publishing the RewardGuard action change, updating the action pins in this shared workflow,
-then updating each caller's workflow pin. Existing pins do not acquire it automatically; this
-documentation does not establish that rollout has happened. The setup and update rules are in
-[`docs/rewardguard.md`](docs/rewardguard.md).
+`CLAUDE_CODE_OAUTH_TOKEN` explicitly, and follow
+`Advanced-Digital-Marketing-LTDA/workflows/.github/workflows/rewardguard.yml@v0`.
+The shared workflow pins both RewardGuard jobs to a full published-release SHA. Dependabot opens
+one grouped upgrade PR; review, merge and successful main RewardGuard CI advance `v0` automatically.
+Existing SHA-pinned callers require a one-time migration. See
+[`docs/rewardguard.md`](docs/rewardguard.md) for setup, promotion gates and rollback.
 
 ## Coveralls
 
