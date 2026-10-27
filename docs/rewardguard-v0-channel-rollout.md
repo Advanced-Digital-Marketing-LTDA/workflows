@@ -1,5 +1,15 @@
 # RewardGuard v0 release-channel migration
 
+## Restoring the channel (2026-10-27)
+
+The scheduled Dependabot run on October 27 found RewardGuard v0.2.1, but the default three-day cooldown kept it on v0.2.0. The Dependabot configuration excludes this owned dependency from cooldown, so future daily checks can propose a release without that delay. A proposal is not an automatic merge.
+
+The publisher's October 25 run failed before promotion. The current `RewardGuard v0 release channel` ruleset requires a pull request and does not require the `rewardguard / rewardguard` status check. The publisher instead requires that exact GitHub Actions check and attempts a fast-forward ref update; with the current pull-request rule and no bypass actor, that update is also blocked. The tag-shadowing ruleset is active.
+
+The original channel design is documented in `docs/releases/v0-branch-rules.json`: deletion and force-push protection plus the `rewardguard / rewardguard` check from GitHub Actions (integration ID 15368), with no bypass actors. A repository administrator must reconcile the active v0 branch ruleset with that design. Removing the pull-request rule changes an existing protection; review that change before applying it. Do not remove the tag protection or use a broad bypass. GitHub's settings must also allow Dependabot PR workflows to access the required Dependabot secrets; their presence has not been verified here.
+
+Once the branch rules are reconciled and the required check has succeeded on the current main commit, an administrator can run `Publish RewardGuard v0 channel` using `workflow_dispatch` on main. Verify the publisher succeeds and `v0` points to the validated main commit. When the next Dependabot PR is merged, the normal successful main RewardGuard push run should trigger promotion. A new RewardGuard implementation still needs a published stable v0.x.y release for Dependabot to discover it.
+
 ## Selected release model
 
 - ADM callers use `Advanced-Digital-Marketing-LTDA/workflows/.github/workflows/rewardguard.yml@v0`.

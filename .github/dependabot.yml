@@ -4,6 +4,11 @@ updates:
     directory: /
     schedule:
       interval: daily
+    # RewardGuard is an owned release reviewed in the shared workflow PR;
+    # avoid the default three-day delay before Dependabot proposes it.
+    cooldown:
+      exclude:
+        - Advanced-Digital-Marketing-LTDA/RewardGuard
     allow:
       - dependency-name: Advanced-Digital-Marketing-LTDA/RewardGuard
     ignore:
