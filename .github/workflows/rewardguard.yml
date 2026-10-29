@@ -148,7 +148,7 @@ jobs:
           package-manager-cache: false # setup-node's auto npm cache fails on repos without a root lockfile
       # Local tested candidate; publication/tag/release CI remain pending.
       - name: Run test suites (no secrets)
-        uses: Advanced-Digital-Marketing-LTDA/RewardGuard@c5f97a26b37f7b5cb30af24fe44ab53e45801d82 # v0.3.0
+        uses: Advanced-Digital-Marketing-LTDA/RewardGuard@92f2e4b6f7a6364b624b08e0187d38fa976144ec # v0.3.0
         with:
           mode: tests
           base: ${{ needs.rewardguard-base.outputs.base }}
@@ -185,7 +185,7 @@ jobs:
       # Same tested immutable candidate as tests; promotion verifies actual release.
       - name: Judge the diff
         id: judge
-        uses: Advanced-Digital-Marketing-LTDA/RewardGuard@c5f97a26b37f7b5cb30af24fe44ab53e45801d82 # v0.3.0
+        uses: Advanced-Digital-Marketing-LTDA/RewardGuard@92f2e4b6f7a6364b624b08e0187d38fa976144ec # v0.3.0
         with:
           mode: check
           base: ${{ needs.rewardguard-base.outputs.base }}
