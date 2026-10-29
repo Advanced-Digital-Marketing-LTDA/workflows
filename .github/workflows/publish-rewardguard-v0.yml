@@ -16,13 +16,8 @@ concurrency:
 
 jobs:
   publish:
-    if: >-
-      github.repository == 'Advanced-Digital-Marketing-LTDA/workflows' &&
-      ((github.event_name == 'workflow_run' &&
-        github.event.workflow_run.event == 'push' &&
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_repository.full_name == github.repository) ||
-       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    # Direct promotion is disabled until a dedicated promotion identity is enforced.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -104,11 +99,15 @@ jobs:
                           for check in rule['parameters']['required_status_checks']}
               require({('rewardguard / rewardguard', 15368),
                        ('RewardGuard candidate validation', 15368)} <= contexts
-                      and 'pull_request' not in rule_types,
-                      'v0 must require RewardGuard and candidate validation and permit protected fast-forward publication')
+                      and 'pull_request' in rule_types,
+                      'v0 must require a reviewed pull request, RewardGuard and candidate validation')
               tag_rulesets = api(prefix + '/rulesets?per_page=100')
               tag_protected = False
+              branch_protection = None
               for ruleset in tag_rulesets:
+                  if (ruleset['name'] == 'RewardGuard v0 release channel'
+                          and ruleset['target'] == 'branch' and ruleset['enforcement'] == 'active'):
+                      branch_protection = api(prefix + '/rulesets/' + str(ruleset['id']))
                   if (ruleset['name'] == 'Prevent tags shadowing RewardGuard v0 channel'
                           and ruleset['target'] == 'tag' and ruleset['enforcement'] == 'active'):
                       detail = api(prefix + '/rulesets/' + str(ruleset['id']))
@@ -117,11 +116,17 @@ jobs:
                       tag_protected = (refs.get('include') == ['refs/tags/v0']
                                        and not refs.get('exclude') and not detail.get('bypass_actors')
                                        and {'creation', 'update', 'deletion'} <= kinds)
-                      if tag_protected:
-                          break
               if not tag_protected:
                   raise SystemExit('Apply the exact v0 tag-shadowing ruleset before publication')
-              return branch_rules, detail
+              require(branch_protection is not None, 'Apply the v0 branch ruleset before publication')
+              refs = branch_protection.get('conditions', {}).get('ref_name', {})
+              pr_rules = [r for r in branch_protection.get('rules', []) if r['type'] == 'pull_request']
+              require(refs.get('include') == ['refs/heads/v0'] and not refs.get('exclude')
+                      and not branch_protection.get('bypass_actors') and len(pr_rules) == 1
+                      and pr_rules[0].get('parameters', {}).get('required_approving_review_count', 0) >= 1
+                      and pr_rules[0].get('parameters', {}).get('require_last_push_approval') is True,
+                      'v0 must require an independent reviewed PR with no bypass actors')
+              return branch_rules, branch_protection, detail
 
           protected = protection()
           main = api(prefix + '/git/ref/heads/main')['object']['sha']

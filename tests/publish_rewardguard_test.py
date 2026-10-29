@@ -50,8 +50,10 @@ class Fixture:
             PREFIX + '/git/ref/heads/main': {'object': {'sha': P}},
             PREFIX + '/git/ref/heads/v0': {'object': {'sha': B}},
             PREFIX + '/rules/branches/v0': rules,
-            PREFIX + '/rulesets?per_page=100': [{'id': 1, 'name': 'Prevent tags shadowing RewardGuard v0 channel', 'target': 'tag', 'enforcement': 'active'}],
+            PREFIX + '/rulesets?per_page=100': [{'id': 1, 'name': 'Prevent tags shadowing RewardGuard v0 channel', 'target': 'tag', 'enforcement': 'active'},
+                                                {'id': 2, 'name': 'RewardGuard v0 release channel', 'target': 'branch', 'enforcement': 'active'}],
             PREFIX + '/rulesets/1': json.loads((ROOT / 'docs/releases/v0-tag-rules.json').read_text()),
+            PREFIX + '/rulesets/2': json.loads((ROOT / 'docs/releases/v0-branch-rules.json').read_text()),
             PREFIX + '/compare/' + C + '...' + P: {'status': 'ahead', 'merge_base_commit': {'sha': C}},
             EPREFIX + '/releases/tags/' + self.version: {'draft': False, 'prerelease': False, 'published_at': '2026-10-28T21:00:00Z'},
             EPREFIX + '/git/ref/tags/' + self.version: {'object': {'type': 'commit', 'sha': self.action}},
@@ -164,6 +166,25 @@ class Fixture:
 
 
 class PublisherTests(unittest.TestCase):
+    def test_direct_promotion_is_disabled_and_branch_rules_require_review(self):
+        workflow = (ROOT / '.github/workflows/publish-rewardguard-v0.yml').read_text()
+        self.assertIn('if: ${{ false }}', workflow)
+        for mutation in ('bypass', 'approval', 'last_push', 'missing_rule'):
+            with self.subTest(mutation=mutation):
+                f = Fixture()
+                branch = f.data[PREFIX + '/rulesets/2']
+                pr = next(r for r in branch['rules'] if r['type'] == 'pull_request')
+                if mutation == 'bypass':
+                    branch['bypass_actors'] = [{'actor_id': 15368, 'actor_type': 'Integration', 'bypass_mode': 'always'}]
+                elif mutation == 'approval':
+                    pr['parameters']['required_approving_review_count'] = 0
+                elif mutation == 'last_push':
+                    pr['parameters']['require_last_push_approval'] = False
+                else:
+                    branch['rules'].remove(pr)
+                self.assertNotEqual(f.run(), 0)
+                self.assertEqual(f.writes, [])
+
     def test_real_completed_candidate_with_expected_findings_promotes_forward(self):
         f = Fixture()
         result = f.run()

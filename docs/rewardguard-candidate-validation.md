@@ -37,7 +37,7 @@ The initial run must evaluate and explain, have zero completed-record hits and d
 
 Expected p>=0.80 findings require a failed report/run/judge step with original exit 1; they are valid canary evidence with `errors=[]`. The gate independently requires successful actual publication, report upload, execution recording and execution upload. Incomplete evidence, missing reports, stale heads, wrong candidate/action identities or lost explanations block. The publisher parses reports as bounded data and executes no source or artifacts.
 
-The current v0 protection payload adds the named GitHub Actions check `RewardGuard candidate validation`, retains RewardGuard, deletion/force-push protection and tag-shadow prevention. Active rules and exact main/channel are checked again before mutation. All writes use force=false. Source and fake-API tests do not prove hosted protection settings or private-consumer token visibility; those remain external prerequisites.
+The current v0 protection payload adds the named GitHub Actions check `RewardGuard candidate validation`, retains RewardGuard, deletion/force-push protection and tag-shadow prevention. The direct publisher job is disabled pending a dedicated promotion identity and verified update restriction. Its protection check requires an independently approved PR ruleset without bypass actors. Any future writes must use force=false. Source and fake-API tests do not prove hosted protection settings or private-consumer token visibility; those remain external prerequisites.
 
 ## Forward rollback
 

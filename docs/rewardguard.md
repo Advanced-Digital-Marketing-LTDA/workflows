@@ -187,7 +187,7 @@ workflow does not change its secret access. See
 
 **One-time channel protection (repository owner):** apply the supplied exact-ref rulesets
 before merging caller migrations. The branch rules forbid force pushes and deletion and require
-the GitHub Actions `rewardguard / rewardguard` check on commits promoted to `v0`. The tag rules
+independent PR approval and the required GitHub Actions checks on commits promoted to `v0`. The tag rules
 prevent anyone from creating a shadowing `v0` tag. No bypass actors are configured.
 
 ```sh
@@ -199,7 +199,7 @@ These commands require an owner token with repository Administration write permi
 integration returned HTTP 403 when applying the branch rules and listing Dependabot secrets. The
 rules and credentials are not claimed configured. Inspect the repository Rules settings and
 Dependabot secret access before rollout; repository admin status alone does not grant an app those
-API scopes. After setup, the publisher uses the ordinary repository token and needs no admin token.
+API scopes. Automatic direct promotion is disabled until a dedicated promotion identity and its restrictions are configured and verified; do not remove the PR rule to enable it.
 
 The new source pins the tested local engine candidate `c5f97a26b37f7b5cb30af24fe44ab53e45801d82` with intended version `v0.3.0`. It is **pending publication**; no matching remote tag/release/CI is claimed. Promotion rejects an unpublished action. Both action uses must always match.
 
@@ -208,9 +208,9 @@ The new source pins the tested local engine candidate `c5f97a26b37f7b5cb30af24fe
 3. A separately reviewed trusted consumer caller invokes literal `.../rewardguard.yml@C`, using deployed trusted-base public mappings, matching test settings and bounded permissions. It performs genuine first and restored-record replay runs. Proposed workflow/action code is never run beside provider credentials.
 4. Commit reviewed receipt P only after real run/report provenance and clean/warning/failure/explanation reuse have been inspected. The publisher verifies C is an ancestor and shared workflow, publisher, validator, test and protection-policy bytes are identical; it requires exact-P validation plus old-channel review CI. See [candidate evidence contract](rewardguard-candidate-validation.md).
 5. The publisher independently authenticates exact consumer run attempts, default-branch head, C runtime metadata, execution/report artifact digests and actual action revision. Expected finding failures remain failed; execution, upload or publication errors block. Initial cache miss plus genuine replay without content regrading/re-explanation is mandatory. A pending/absent receipt blocks publication.
-6. The publisher rechecks main/protections/channel and fast-forwards v0 only. Inspect its summary and read back the ref, then inspect a subsequent real consumer's resolved workflow/action revisions and behavior. Queued runs may retain older source. Engine merge, channel publication and consumer acceptance are separate.
+6. Automatic direct promotion is disabled. Use a separately reviewed PR under the protected v0 rules, and inspect a subsequent real consumer's resolved workflow/action revisions and behavior. Engine merge, channel publication and consumer acceptance are separate.
 
-Successful main push completion of either review or candidate-validation workflow may trigger publication; both exact-main runs and real proof must already exist. `workflow_dispatch` on main retries the same gates. No checkout, branch scripts, provider credentials or model calls run in the publisher; bounded artifacts are parsed as data only. The token must read the chosen consumer's Actions proof; unavailable private-repository access blocks promotion rather than introducing fallback credentials.
+The publisher job is disabled, including for `workflow_dispatch`. Re-enabling it requires a dedicated promotion identity and verified restriction of v0 updates to that identity. Both exact-main runs and real proof must already exist. No checkout, branch scripts, provider credentials or model calls run in the publisher; bounded artifacts are parsed as data only. The token must read the chosen consumer's Actions proof; unavailable private-repository access blocks promotion rather than introducing fallback credentials.
 
 Forward rollback needs a separately reviewed later main commit restoring the **complete** known-good reusable workflow and compatible publisher policy. Restoring only v0.2.3 action pins in the new wrapper is incompatible with its new inputs/artifact contract. Revalidate baseline protections, CI and actual runtime under that reviewed policy, then promote the later commit with a fast-forward. There is no automatic rollback mode or bypass, and no force/reset of v0. Verified source baseline: shared `98644db90cb691013e4a93d1539dc3de5c01e1d4`, published v0.2.3 action `958ef58b886910c5370536c63252a0a81f30fe8d`; these source references do not themselves prove old runtime behavior or a completed rollback drill.
 
