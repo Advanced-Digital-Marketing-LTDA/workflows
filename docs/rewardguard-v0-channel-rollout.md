@@ -1,5 +1,11 @@
 # RewardGuard v0 release-channel migration
 
+## Current source preparation (2026-10-28)
+
+The shared source now pins one tested local v0.3.0 candidate in both jobs, with publication explicitly pending. Promotion requires exact-main secret-free validation, matching published action tag/release/CI, reviewed immutable candidate C runtime and authenticated real-consumer first/replay cache proof. The committed receipt is pending and blocks publication. Old `@v0` review CI does not prove candidate execution. See [current rollout rules](rewardguard.md) and [the exact evidence contract](rewardguard-candidate-validation.md).
+
+The historical record below describes earlier migration work and is not current acceptance evidence. Current protection settings, token access, caller mappings/test agreement and runtime revisions must be rechecked before release. New `RewardGuard candidate validation` protection must be applied by the owner; it was not changed remotely here.
+
 ## Restoring the channel (2026-10-27)
 
 The scheduled Dependabot run on October 27 found RewardGuard v0.2.1, but the default three-day cooldown kept it on v0.2.0. The Dependabot configuration excludes this owned dependency from cooldown, so future daily checks can propose a release without that delay. A proposal is not an automatic merge.

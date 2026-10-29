@@ -60,8 +60,8 @@ test("runs branch tests only in a job without secrets or saved credentials", () 
 test("judges in a job that holds the secrets and still reports when tests fail or are skipped", () => {
   const check = job(readWorkflow(), "rewardguard");
   assert.match(check, /needs: \[rewardguard-base, rewardguard-tests\]/u);
-  assert.match(check, /if: \$\{\{ !cancelled\(\) \}\}/u);
-  assert.match(check, /pull-requests: write/u);
+  assert.match(check, /!cancelled\(\)/u);
+  assert.doesNotMatch(check, /permissions:/u);
   assert.match(check, /ref: \$\{\{ needs\.rewardguard-base\.outputs\.head \}\}/u);
   assert.match(check, /persist-credentials: false/u);
   assert.match(check, /base: \$\{\{ needs\.rewardguard-base\.outputs\.base \}\}/u);
@@ -108,7 +108,7 @@ const resolveScript = () => {
   return script.join("\n");
 };
 
-for (const kind of ["pr", "push", "first-push", "default-parent", "local-ref", "fetch-ref", "invalid-base", "initial-root"]) {
+for (const kind of ["pr", "push", "first-push", "default-parent", "local-ref", "fetch-ref", "invalid-base", "initial-root", "pr-new-target", "force-push", "wrong-head", "unrelated-pr", "rename-delete"]) {
   test(`baseline resolver handles ${kind} against real git history`, () => {
     const temp = mkdtempSync(join(tmpdir(), "rewardguard-workflow-"));
     try {
@@ -131,7 +131,7 @@ for (const kind of ["pr", "push", "first-push", "default-parent", "local-ref", "
       let head = git(repo, "rev-parse", "HEAD");
       const env = Object.fromEntries(["BASE_INPUT", "PR_BASE_SHA", "BASE_REF", "PUSH_BEFORE", "EVENT_NAME", "DEFAULT_BRANCH", "EVENT_REF", "EXPECTED_HEAD"].map((key) => [key, ""]));
       if (kind === "pr") Object.assign(env, { EVENT_NAME: "pull_request", PR_BASE_SHA: base });
-      if (kind === "push") Object.assign(env, { EVENT_NAME: "push", PUSH_BEFORE: base });
+      if (kind === "push") Object.assign(env, { EVENT_NAME: "push", PUSH_BEFORE: base, DEFAULT_BRANCH: "main", EVENT_REF: "refs/heads/feature" });
       if (["first-push", "default-parent", "initial-root"].includes(kind)) {
         Object.assign(env, { EVENT_NAME: "push", PUSH_BEFORE: "0".repeat(40), DEFAULT_BRANCH: "main", EVENT_REF: kind === "first-push" ? "refs/heads/feature" : "refs/heads/main" });
       }
@@ -146,17 +146,103 @@ for (const kind of ["pr", "push", "first-push", "default-parent", "local-ref", "
       if (kind === "initial-root") {
         git(repo, "checkout", "--detach", base); head = base;
       }
+      let expectedBase = base;
+      if (kind === "pr-new-target") {
+        git(repo, "checkout", "main");
+        writeFileSync(join(repo, "target-only"), "target work\n");
+        git(repo, "add", "target-only"); git(repo, "commit", "-qm", "new target");
+        const target = git(repo, "rev-parse", "HEAD");
+        git(repo, "checkout", "feature");
+        Object.assign(env, { EVENT_NAME: "pull_request", PR_BASE_SHA: target, BASE_INPUT: target });
+      }
+      if (kind === "force-push") {
+        const before = head;
+        git(repo, "checkout", "--detach", base);
+        writeFileSync(join(repo, "file"), "rebased head\n");
+        git(repo, "commit", "-qam", "rebased head");
+        head = git(repo, "rev-parse", "HEAD"); expectedBase = before;
+        Object.assign(env, { EVENT_NAME: "push", PUSH_BEFORE: before, DEFAULT_BRANCH: "main", EVENT_REF: "refs/heads/feature" });
+      }
+      if (kind === "wrong-head") env.BASE_INPUT = base;
+      if (kind === "unrelated-pr") {
+        git(repo, "checkout", "--orphan", "unrelated");
+        git(repo, "commit", "-qm", "unrelated root");
+        Object.assign(env, { EVENT_NAME: "pull_request", PR_BASE_SHA: base });
+        head = git(repo, "rev-parse", "HEAD");
+      }
+      if (kind === "rename-delete") {
+        git(repo, "mv", "file", "renamed"); git(repo, "commit", "-qm", "rename source");
+        git(repo, "rm", "renamed"); git(repo, "commit", "-qm", "delete source");
+        head = git(repo, "rev-parse", "HEAD");
+        Object.assign(env, { EVENT_NAME: "pull_request", PR_BASE_SHA: base });
+      }
       const output = join(temp, "outputs");
       writeFileSync(output, "");
-      const result = spawnSync("bash", ["-euo", "pipefail", "-c", resolveScript()], { cwd: repo, encoding: "utf8", env: { ...process.env, ...env, EXPECTED_HEAD: head, GITHUB_OUTPUT: output } });
-      if (["invalid-base", "initial-root"].includes(kind)) {
+      const result = spawnSync("bash", ["-euo", "pipefail", "-c", resolveScript()], { cwd: repo, encoding: "utf8", env: { ...process.env, ...env, EXPECTED_HEAD: kind === "wrong-head" ? base : head, GITHUB_OUTPUT: output } });
+      if (["invalid-base", "initial-root", "wrong-head", "unrelated-pr"].includes(kind)) {
         assert.notEqual(result.status, 0);
         assert.match(result.stdout + result.stderr, /::error::/u);
         assert.equal(readFileSync(output, "utf8"), "");
       } else {
         assert.equal(result.status, 0, result.stdout + result.stderr);
-        assert.equal(readFileSync(output, "utf8"), `ref=${base}\nhead=${head}\n`);
+        assert.equal(readFileSync(output, "utf8"), `ref=${expectedBase}\nhead=${head}\npolicy=${base}\n`);
       }
     } finally { rmSync(temp, { recursive: true, force: true }); }
   });
 }
+
+test("shared judge inherits caller-bounded permissions and transports immutable policy/head", () => {
+  const workflow = readWorkflow();
+  assert.doesNotMatch(workflow, /^permissions:/mu);
+  assert.doesNotMatch(job(workflow, "rewardguard"), /^    permissions:/mu);
+  assert.match(job(workflow, "rewardguard-base"), /policy: \$\{\{ steps\.resolve\.outputs\.policy \}\}/u);
+  for (const name of ["rewardguard-tests", "rewardguard"]) {
+    assert.match(job(workflow, name), /policy-base: \$\{\{ needs\.rewardguard-base\.outputs\.policy \}\}/u);
+    assert.match(job(workflow, name), /head: \$\{\{ needs\.rewardguard-base\.outputs\.head \}\}/u);
+  }
+  assert.match(job(workflow, "rewardguard"), /Upload candidate execution evidence/u);
+  assert.match(workflow, /steps\.judge\.outputs\.publication-outcome/u);
+});
+
+test("candidate validation is secret-free and receipt state is explicit without locking future acceptance", () => {
+  const validation = readFileSync(new URL("../.github/workflows/validate-rewardguard-candidate.yml", import.meta.url), "utf8");
+  assert.match(validation, /node --test tests\/\*\.test\.mjs/u);
+  assert.doesNotMatch(validation, /secrets\.|: write|pull_request_target/u);
+  const receipt = JSON.parse(readFileSync(new URL("../docs/releases/rewardguard-candidate.json", import.meta.url), "utf8"));
+  assert.equal(receipt.schema_version, 1);
+  assert.ok(["pending", "accepted"].includes(receipt.status));
+  if (receipt.status === "pending") assert.equal(typeof receipt.reason, "string");
+});
+
+test('execution artifact records actual action outcomes without serializing credentials', () => {
+  const check = job(readWorkflow(), 'rewardguard');
+  const match = check.match(/python -I - <<'PY'\n([\s\S]*?)\n {10}PY/u);
+  assert.ok(match, 'trusted execution recorder missing');
+  const script = match[1].split('\n').map((line) => line.slice(10)).join('\n');
+  const temp = mkdtempSync(join(tmpdir(), 'rewardguard-execution-'));
+  try {
+    const result = spawnSync('python3', ['-I', '-c', script], { encoding: 'utf8', env: {
+      ...process.env, RUNNER_TEMP: temp, REPORT_ID: '42', REPORT_DIGEST: 'a'.repeat(64),
+      PUBLICATION: 'failure', REVIEW_UPLOAD: 'success', JUDGE_EXIT: '1',
+      TYPESAFE_API_KEY: 'must-never-be-recorded', GH_TOKEN: 'must-never-be-recorded',
+    } });
+    assert.equal(result.status, 0, result.stderr);
+    const output = readFileSync(join(temp, 'rewardguard-execution.json'), 'utf8');
+    const evidence = JSON.parse(output);
+    assert.equal(evidence.PUBLICATION, 'failure');
+    assert.equal(evidence.REVIEW_UPLOAD, 'success');
+    assert.equal(evidence.JUDGE_EXIT, '1');
+    assert.doesNotMatch(output, /must-never-be-recorded|TYPESAFE_API_KEY|GH_TOKEN/u);
+  } finally { rmSync(temp, { recursive: true, force: true }); }
+});
+
+test('default pushes remain covered while feature pushes do not duplicate PR reviews', () => {
+  const workflow = readWorkflow();
+  for (const name of ['rewardguard-base', 'rewardguard']) {
+    assert.match(job(workflow, name), /github\.event_name != 'push' \|\| github\.ref == format\('refs\/heads\/\{0\}', github\.event\.repository\.default_branch\)/u);
+  }
+  assert.match(workflow, /group: rewardguard-shared-.*github\.event\.pull_request\.number \|\| github\.ref/u);
+  const caller = readFileSync(new URL('../.github/workflows/rewardguard-check.yml', import.meta.url), 'utf8');
+  assert.match(caller, /push:\n\s+branches: \[main\]/u);
+  assert.match(caller, /types: \[opened, synchronize, reopened, edited, ready_for_review\]/u);
+});
