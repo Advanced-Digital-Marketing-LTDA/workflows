@@ -1,12 +1,18 @@
 # RewardGuard v0 release-channel migration
 
+## Current source preparation (2026-10-28)
+
+The shared source now pins one tested local v0.3.0 candidate in both jobs, with publication explicitly pending. Promotion requires exact-main secret-free validation, matching published action tag/release/CI, reviewed immutable candidate C runtime and authenticated real-consumer first/replay cache proof. The committed receipt is pending and blocks publication. Old `@v0` review CI does not prove candidate execution. See [current rollout rules](rewardguard.md) and [the exact evidence contract](rewardguard-candidate-validation.md).
+
+The historical record below describes earlier migration work and is not current acceptance evidence. Current protection settings, token access, caller mappings/test agreement and runtime revisions must be rechecked before release. New `RewardGuard candidate validation` protection must be applied by the owner; it was not changed remotely here.
+
 ## Restoring the channel (2026-10-27)
 
 The scheduled Dependabot run on October 27 found RewardGuard v0.2.1, but the default three-day cooldown kept it on v0.2.0. The Dependabot configuration excludes this owned dependency from cooldown, so future daily checks can propose a release without that delay. A proposal is not an automatic merge.
 
 The publisher's October 25 run failed before promotion. The current `RewardGuard v0 release channel` ruleset requires a pull request and does not require the `rewardguard / rewardguard` status check. The publisher instead requires that exact GitHub Actions check and attempts a fast-forward ref update; with the current pull-request rule and no bypass actor, that update is also blocked. The tag-shadowing ruleset is active.
 
-The original channel design is documented in `docs/releases/v0-branch-rules.json`: deletion and force-push protection plus the `rewardguard / rewardguard` check from GitHub Actions (integration ID 15368), with no bypass actors. A repository administrator must reconcile the active v0 branch ruleset with that design. Removing the pull-request rule changes an existing protection; review that change before applying it. Do not remove the tag protection or use a broad bypass. GitHub's settings must also allow Dependabot PR workflows to access the required Dependabot secrets; their presence has not been verified here.
+The supplied `docs/releases/v0-branch-rules.json` requires an independently approved pull request, both GitHub Actions checks, deletion and force-push protection, and no bypass actors. Keep the pull-request and tag protections. Automatic direct promotion is disabled until a dedicated promotion identity and an enforceable update restriction are configured and verified. GitHub's settings must also allow Dependabot PR workflows to access the required Dependabot secrets; their presence has not been verified here.
 
 Once the branch rules are reconciled and the required check has succeeded on the current main commit, an administrator can run `Publish RewardGuard v0 channel` using `workflow_dispatch` on main. Verify the publisher succeeds and `v0` points to the validated main commit. When the next Dependabot PR is merged, the normal successful main RewardGuard push run should trigger promotion. A new RewardGuard implementation still needs a published stable v0.x.y release for Dependabot to discover it.
 
