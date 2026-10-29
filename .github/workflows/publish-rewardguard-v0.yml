@@ -122,8 +122,9 @@ jobs:
               refs = branch_protection.get('conditions', {}).get('ref_name', {})
               pr_rules = [r for r in branch_protection.get('rules', []) if r['type'] == 'pull_request']
               require(refs.get('include') == ['refs/heads/v0'] and not refs.get('exclude')
-                      and not branch_protection.get('bypass_actors') and len(pr_rules) == 1
-                      and pr_rules[0].get('parameters', {}).get('required_approving_review_count', 0) >= 1
+                      and branch_protection.get('bypass_actors') == [] and len(pr_rules) == 1
+                      and type(pr_rules[0].get('parameters', {}).get('required_approving_review_count')) is int
+                      and pr_rules[0]['parameters']['required_approving_review_count'] >= 1
                       and pr_rules[0].get('parameters', {}).get('require_last_push_approval') is True,
                       'v0 must require an independent reviewed PR with no bypass actors')
               return branch_rules, branch_protection, detail

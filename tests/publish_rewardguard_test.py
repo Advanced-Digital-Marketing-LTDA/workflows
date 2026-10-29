@@ -169,13 +169,15 @@ class PublisherTests(unittest.TestCase):
     def test_direct_promotion_is_disabled_and_branch_rules_require_review(self):
         workflow = (ROOT / '.github/workflows/publish-rewardguard-v0.yml').read_text()
         self.assertIn('if: ${{ false }}', workflow)
-        for mutation in ('bypass', 'approval', 'last_push', 'missing_rule'):
+        for mutation in ('bypass', 'missing_bypass', 'approval', 'last_push', 'missing_rule'):
             with self.subTest(mutation=mutation):
                 f = Fixture()
                 branch = f.data[PREFIX + '/rulesets/2']
                 pr = next(r for r in branch['rules'] if r['type'] == 'pull_request')
                 if mutation == 'bypass':
                     branch['bypass_actors'] = [{'actor_id': 15368, 'actor_type': 'Integration', 'bypass_mode': 'always'}]
+                elif mutation == 'missing_bypass':
+                    del branch['bypass_actors']
                 elif mutation == 'approval':
                     pr['parameters']['required_approving_review_count'] = 0
                 elif mutation == 'last_push':
