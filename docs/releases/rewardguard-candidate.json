@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "status": "pending",
+  "reason": "No published v0.3.0 release or reviewed immutable shared-candidate/real-consumer first and replay proof exists. Promotion is blocked."
+}

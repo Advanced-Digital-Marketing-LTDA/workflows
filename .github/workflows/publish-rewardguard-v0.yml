@@ -2,7 +2,7 @@ name: Publish RewardGuard v0 channel
 
 on:
   workflow_run:
-    workflows: [rewardguard]
+    workflows: [rewardguard, Validate RewardGuard candidate]
     branches: [main]
     types: [completed]
   workflow_dispatch:
@@ -16,20 +16,15 @@ concurrency:
 
 jobs:
   publish:
-    if: >-
-      github.repository == 'Advanced-Digital-Marketing-LTDA/workflows' &&
-      ((github.event_name == 'workflow_run' &&
-        github.event.workflow_run.event == 'push' &&
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_repository.full_name == github.repository) ||
-       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    # Direct promotion is disabled until a dedicated promotion identity is enforced.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       actions: read
       contents: write
     steps:
-      # No checkout, artifacts, branch scripts, provider credentials or model calls.
+      # No checkout, branch scripts, provider credentials or model calls; artifacts are bounded data only.
       - name: Promote a published release after main CI
         env:
           GH_TOKEN: ${{ github.token }}
@@ -41,6 +36,11 @@ jobs:
           python -I - <<'PY'
           import base64
           import json
+          import hashlib
+          import io
+          import math
+          import zipfile
+          from urllib.parse import urlsplit
           import os
           import re
           import urllib.error
@@ -60,6 +60,21 @@ jobs:
 
           opener = urllib.request.build_opener(NoRedirect())
 
+          def require(condition, message):
+              if not condition:
+                  raise SystemExit(message)
+
+          def strict_json(data):
+              def pairs(items):
+                  result = {}
+                  for key, value in items:
+                      require(key not in result, 'Duplicate JSON key')
+                      result[key] = value
+                  return result
+              def invalid(value):
+                  raise ValueError('Nonfinite JSON number')
+              return json.loads(data, object_pairs_hook=pairs, parse_constant=invalid)
+
           def api(path, method='GET', payload=None):
               request = urllib.request.Request(
                   api_root + path, method=method,
@@ -69,48 +84,78 @@ jobs:
                            'Content-Type': 'application/json',
                            'X-GitHub-Api-Version': '2022-11-28'})
               with opener.open(request, timeout=30) as response:
-                  return json.load(response)
+                  data = response.read(2 * 1024 * 1024 + 1)
+                  require(len(data) <= 2 * 1024 * 1024, 'GitHub API response too large')
+                  return strict_json(data)
 
           prefix = '/repos/' + repository
-          branch_rules = api(prefix + '/rules/branches/v0')
-          rule_types = {rule['type'] for rule in branch_rules}
-          if not {'deletion', 'non_fast_forward', 'required_status_checks'} <= rule_types:
-              raise SystemExit('Apply the v0 branch protection rules before publication')
-          if not any(check['context'] == 'rewardguard / rewardguard'
-                     and check.get('integration_id') == 15368
-                     for rule in branch_rules if rule['type'] == 'required_status_checks'
-                     for check in rule['parameters']['required_status_checks']):
-              raise SystemExit('v0 must require the GitHub Actions RewardGuard check')
-          tag_rulesets = api(prefix + '/rulesets?per_page=100')
-          tag_protected = False
-          for ruleset in tag_rulesets:
-              if (ruleset['name'] == 'Prevent tags shadowing RewardGuard v0 channel'
-                      and ruleset['target'] == 'tag' and ruleset['enforcement'] == 'active'):
-                  detail = api(prefix + '/rulesets/' + str(ruleset['id']))
-                  refs = detail.get('conditions', {}).get('ref_name', {})
-                  kinds = {rule['type'] for rule in detail['rules']}
-                  tag_protected = (refs.get('include') == ['refs/tags/v0']
-                                   and not refs.get('exclude') and not detail.get('bypass_actors')
-                                   and {'creation', 'update', 'deletion'} <= kinds)
-                  if tag_protected:
-                      break
-          if not tag_protected:
-              raise SystemExit('Apply the exact v0 tag-shadowing ruleset before publication')
+          def protection():
+              branch_rules = api(prefix + '/rules/branches/v0')
+              rule_types = {rule['type'] for rule in branch_rules}
+              if not {'deletion', 'non_fast_forward', 'required_status_checks'} <= rule_types:
+                  raise SystemExit('Apply the v0 branch protection rules before publication')
+              contexts = {(check['context'], check.get('integration_id'))
+                          for rule in branch_rules if rule['type'] == 'required_status_checks'
+                          for check in rule['parameters']['required_status_checks']}
+              require({('rewardguard / rewardguard', 15368),
+                       ('RewardGuard candidate validation', 15368)} <= contexts
+                      and 'pull_request' in rule_types,
+                      'v0 must require a reviewed pull request, RewardGuard and candidate validation')
+              tag_rulesets = api(prefix + '/rulesets?per_page=100')
+              tag_protected = False
+              branch_protection = None
+              for ruleset in tag_rulesets:
+                  if (ruleset['name'] == 'RewardGuard v0 release channel'
+                          and ruleset['target'] == 'branch' and ruleset['enforcement'] == 'active'):
+                      branch_protection = api(prefix + '/rulesets/' + str(ruleset['id']))
+                  if (ruleset['name'] == 'Prevent tags shadowing RewardGuard v0 channel'
+                          and ruleset['target'] == 'tag' and ruleset['enforcement'] == 'active'):
+                      detail = api(prefix + '/rulesets/' + str(ruleset['id']))
+                      refs = detail.get('conditions', {}).get('ref_name', {})
+                      kinds = {rule['type'] for rule in detail['rules']}
+                      tag_protected = (refs.get('include') == ['refs/tags/v0']
+                                       and not refs.get('exclude') and not detail.get('bypass_actors')
+                                       and {'creation', 'update', 'deletion'} <= kinds)
+              if not tag_protected:
+                  raise SystemExit('Apply the exact v0 tag-shadowing ruleset before publication')
+              require(branch_protection is not None, 'Apply the v0 branch ruleset before publication')
+              refs = branch_protection.get('conditions', {}).get('ref_name', {})
+              pr_rules = [r for r in branch_protection.get('rules', []) if r['type'] == 'pull_request']
+              require(refs.get('include') == ['refs/heads/v0'] and not refs.get('exclude')
+                      and branch_protection.get('bypass_actors') == [] and len(pr_rules) == 1
+                      and type(pr_rules[0].get('parameters', {}).get('required_approving_review_count')) is int
+                      and pr_rules[0]['parameters']['required_approving_review_count'] >= 1
+                      and pr_rules[0].get('parameters', {}).get('require_last_push_approval') is True,
+                      'v0 must require an independent reviewed PR with no bypass actors')
+              return branch_rules, branch_protection, detail
+
+          protected = protection()
           main = api(prefix + '/git/ref/heads/main')['object']['sha']
           if candidate != main:
               print('A newer main commit exists; skip this stale candidate.')
               raise SystemExit(0)
-          runs = api(prefix + '/actions/workflows/rewardguard-check.yml/runs'
-                     '?event=push&status=success&head_sha=' + candidate + '&per_page=100')['workflow_runs']
-          if not any(run['head_sha'] == candidate and run['head_branch'] == 'main'
-                     and run['event'] == 'push' and run['conclusion'] == 'success'
-                     and run['path'] == '.github/workflows/rewardguard-check.yml'
-                     for run in runs):
-              raise SystemExit('Main RewardGuard CI has not passed for this candidate')
+          def passed_ci(repo_prefix, file, sha, expected_repository):
+              runs = api(repo_prefix + '/actions/workflows/' + file + '/runs'
+                         '?event=push&status=success&head_sha=' + sha + '&per_page=100')['workflow_runs']
+              return any(run.get('head_sha') == sha and run.get('head_branch') == 'main'
+                         and run.get('event') == 'push' and run.get('status') == 'completed'
+                         and run.get('conclusion') == 'success'
+                         and run.get('path', '').split('@')[0] == '.github/workflows/' + file
+                         and run.get('head_repository', {}).get('full_name') == expected_repository
+                         for run in runs)
 
-          content = api(prefix + '/contents/.github/workflows/rewardguard.yml?ref=' + candidate)
-          source = base64.b64decode(content['content']).decode('utf-8')
-          references = re.findall(r'^\s*uses:\s*Advanced-Digital-Marketing-LTDA/RewardGuard@([^\s#]+)([^\n]*)$', source, re.M)
+          require(passed_ci(prefix, 'rewardguard-check.yml', candidate, repository),
+                  'Main RewardGuard CI has not passed for this candidate')
+          require(passed_ci(prefix, 'validate-rewardguard-candidate.yml', candidate, repository),
+                  'Exact-main secret-free candidate validation has not passed')
+
+          def source(repo_prefix, path, sha):
+              response = api(repo_prefix + '/contents/' + path + '?ref=' + sha)
+              require(response.get('encoding') == 'base64', 'Expected base64 Git object content')
+              return base64.b64decode(''.join(response['content'].split()), validate=True)
+
+          workflow_source = source(prefix, '.github/workflows/rewardguard.yml', candidate).decode('utf-8')
+          references = re.findall(r'^\s*uses:\s*Advanced-Digital-Marketing-LTDA/RewardGuard@([^\s#]+)([^\n]*)$', workflow_source, re.M)
           if len(references) != 2:
               raise SystemExit('Expected exactly two RewardGuard action references')
           release_pins = []
@@ -134,27 +179,221 @@ jobs:
           if tag['type'] != 'commit' or tag['sha'] != release_sha:
               raise SystemExit('Pinned commit does not match the published release tag')
 
+          require(passed_ci(release_prefix, 'ci.yml', release_sha,
+                            'Advanced-Digital-Marketing-LTDA/RewardGuard'),
+                  'Published RewardGuard release has no exact-SHA successful release CI')
+
+          def positive(value):
+              return type(value) is int and value > 0
+
+          def sha(value):
+              return isinstance(value, str) and re.fullmatch(r'[a-f0-9]{40}', value)
+
+          def digest(value):
+              return isinstance(value, str) and re.fullmatch(r'sha256:[a-f0-9]{64}', value)
+
+          def acceptance():
+              receipt = strict_json(source(prefix, 'docs/releases/rewardguard-candidate.json', candidate))
+              require(type(receipt.get('schema_version')) is int and receipt['schema_version'] == 1
+                      and receipt.get('status') == 'accepted',
+                      'Candidate acceptance is pending: reviewed real-consumer evidence is required')
+              require(set(receipt) == {'schema_version', 'status', 'candidate', 'previous_channel',
+                                      'consumer', 'caller', 'caller_sha256', 'head', 'base', 'policy',
+                                      'initial', 'replay'}, 'Invalid acceptance receipt fields')
+              tested = receipt['candidate']
+              require(all(sha(receipt[k]) for k in ('candidate', 'previous_channel', 'head', 'base', 'policy')),
+                      'Receipt must bind immutable commits')
+              relation = api(prefix + '/compare/' + tested + '...' + candidate)
+              require(relation.get('status') in ('ahead', 'identical')
+                      and relation.get('merge_base_commit', {}).get('sha') == tested,
+                      'Tested candidate is not an ancestor of current main')
+              # Receipt commit P can follow tested C only with identical execution/promotion policy.
+              paths = ['.github/workflows/rewardguard.yml', '.github/workflows/publish-rewardguard-v0.yml',
+                       '.github/workflows/validate-rewardguard-candidate.yml',
+                       'docs/releases/v0-branch-rules.json', 'docs/releases/v0-tag-rules.json',
+                       'tests/rewardguard.test.mjs', 'tests/publish_rewardguard_test.py',
+                       'tests/publish-rewardguard.test.mjs']
+              for path in paths:
+                  require(source(prefix, path, tested) == source(prefix, path, candidate),
+                          'Candidate workflow/publisher/policy changed after execution: ' + path)
+              consumer = receipt['consumer']
+              require(isinstance(consumer, str) and re.fullmatch(r'Advanced-Digital-Marketing-LTDA/[A-Za-z0-9_.-]+', consumer)
+                      and consumer not in (repository, 'Advanced-Digital-Marketing-LTDA/RewardGuard'),
+                      'Expected a real organization public-content consumer')
+              consumer_prefix = '/repos/' + consumer
+              info = api(consumer_prefix)
+              require(info.get('full_name') == consumer and info.get('fork') is False,
+                      'Consumer repository identity mismatch')
+              caller = receipt['caller']
+              require(isinstance(caller, str) and re.fullmatch(r'\.github/workflows/[A-Za-z0-9_-]+\.ya?ml', caller),
+                      'Invalid consumer caller path')
+              caller_source = source(consumer_prefix, caller, receipt['head'])
+              require(hashlib.sha256(caller_source).hexdigest() == receipt['caller_sha256'],
+                      'Consumer caller source changed since review')
+              reference = repository + '/.github/workflows/rewardguard.yml@' + tested
+              require(re.findall(rb'^\s*uses:\s*(\S+)', caller_source, re.M).count(reference.encode()) == 1,
+                      'Reviewed consumer must call immutable candidate exactly once')
+
+              def artifact(artifact_id, expected_digest, name, member, proof):
+                  require(positive(artifact_id) and digest(expected_digest), 'Invalid artifact identity/digest')
+                  metadata = api(consumer_prefix + '/actions/artifacts/' + str(artifact_id))
+                  origin = metadata.get('workflow_run', {})
+                  require(metadata.get('id') == artifact_id and metadata.get('expired') is False
+                          and metadata.get('name') == name + '-' + str(proof['run_id']) + '-' + str(proof['attempt'])
+                          and metadata.get('digest') == expected_digest
+                          and origin.get('id') == proof['run_id'] and origin.get('head_sha') == receipt['head']
+                          and positive(metadata.get('size_in_bytes')) and metadata['size_in_bytes'] <= 16 * 1024 * 1024,
+                          'Artifact origin/name/size/expiration/digest mismatch')
+                  request = urllib.request.Request(api_root + consumer_prefix + '/actions/artifacts/' + str(artifact_id) + '/zip',
+                              headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                                       'Accept': 'application/vnd.github+json'})
+                  try:
+                      with opener.open(request, timeout=30) as response:
+                          data = response.read(16 * 1024 * 1024 + 1)
+                  except urllib.error.HTTPError as error:
+                      require(error.code == 302, 'Artifact archive retrieval failed')
+                      location = error.headers.get('Location', '')
+                      error.close()
+                      url = urlsplit(location)
+                      host = url.hostname or ''
+                      require(url.scheme == 'https' and url.port in (None, 443) and not url.username and not url.password
+                              and (host.endswith('.blob.core.windows.net') or host.endswith('.actions.githubusercontent.com')),
+                              'Unsupported artifact storage redirect')
+                      # New anonymous request; repository credentials never reach signed storage.
+                      with opener.open(urllib.request.Request(location), timeout=30) as response:
+                          data = response.read(16 * 1024 * 1024 + 1)
+                  require(len(data) == metadata['size_in_bytes'] and len(data) <= 16 * 1024 * 1024
+                          and 'sha256:' + hashlib.sha256(data).hexdigest() == expected_digest,
+                          'Artifact archive digest/size mismatch')
+                  with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                      members = archive.infolist()
+                      require(len(members) == 1, 'Expected exactly one artifact member')
+                      item = members[0]
+                      require(item.filename == member and not item.is_dir() and not item.flag_bits & 1
+                              and item.external_attr >> 16 & 0o170000 in (0, 0o100000)
+                              and item.file_size <= 8 * 1024 * 1024,
+                              'Unsafe or oversized artifact member')
+                      return strict_json(archive.read(item))
+
+              def report_for(proof):
+                  require(isinstance(proof, dict) and set(proof) == {'run_id', 'attempt', 'artifact_id', 'digest'}
+                          and positive(proof['run_id']) and positive(proof['attempt']), 'Invalid canary run proof')
+                  run_path = consumer_prefix + '/actions/runs/' + str(proof['run_id']) + '/attempts/' + str(proof['attempt'])
+                  run = api(run_path)
+                  require(run.get('id') == proof['run_id'] and run.get('run_attempt') == proof['attempt']
+                          and run.get('event') == 'push' and run.get('head_branch') == info.get('default_branch')
+                          and run.get('head_sha') == receipt['head'] and run.get('status') == 'completed'
+                          and run.get('path', '').split('@')[0] == caller
+                          and run.get('head_repository', {}).get('full_name') == consumer
+                          and run.get('repository', {}).get('full_name') == consumer,
+                          'Canary must execute reviewed default-branch source at the exact run attempt/head')
+                  require(any(w.get('path') == reference and w.get('sha') == tested
+                              for w in run.get('referenced_workflows', [])),
+                          'Runtime metadata does not prove immutable candidate execution')
+                  execution = artifact(proof['artifact_id'], proof['digest'], 'rewardguard-execution',
+                                       'rewardguard-execution.json', proof)
+                  expected = {'GITHUB_REPOSITORY': consumer, 'GITHUB_RUN_ID': str(proof['run_id']),
+                              'GITHUB_RUN_ATTEMPT': str(proof['attempt']), 'REVIEW_HEAD': receipt['head'],
+                              'REVIEW_BASE': receipt['base'], 'REVIEW_POLICY': receipt['policy'],
+                              'PUBLICATION': 'success', 'REVIEW_UPLOAD': 'success'}
+                  require(all(execution.get(k) == v for k, v in expected.items()),
+                          'Trusted execution identity or publication/upload outcome mismatch')
+                  require(re.fullmatch(r'[1-9][0-9]*', execution.get('REPORT_ID', '')),
+                          'Invalid trusted report artifact ID')
+                  report_digest = 'sha256:' + execution.get('REPORT_DIGEST', '').removeprefix('sha256:')
+                  report = artifact(int(execution['REPORT_ID']), report_digest, 'rewardguard-review', 'rewardguard.json', proof)
+                  identity = report['run_identity']
+                  require(all(identity.get(k) == v for k, v in {
+                              'run_id': str(proof['run_id']), 'run_attempt': str(proof['attempt']), 'event': 'push',
+                              'head': receipt['head'], 'base': receipt['base'], 'trusted_policy': receipt['policy'],
+                              'action_revision': release_sha}.items()), 'Review runtime identity/action mismatch')
+                  content = report['content']
+                  require(report.get('errors') == [] and content.get('errors') == []
+                          and report.get('status') in ('passed', 'failed') and content.get('status') == 'reviewed'
+                          and content.get('eligibility') and all(row.get('status') not in ('not_evaluated', 'error')
+                          and row.get('result_complete') is not False for row in content['coverage']),
+                          'Canary content was absent, incomplete or had execution errors')
+                  failed = any(f.get('severity') == 'fail' for f in report['findings'])
+                  verdict = 'failure' if failed else 'success'
+                  require(report.get('failed') is failed and run.get('conclusion') == verdict
+                          and execution.get('JUDGE_EXIT') == ('1' if failed else '0'),
+                          'Canary expected finding verdict disagrees with execution')
+                  jobs = api(run_path + '/jobs?per_page=100')
+                  require(jobs.get('total_count') == len(jobs['jobs']) and len(jobs['jobs']) <= 100,
+                          'Canary jobs incomplete or require unsupported pagination')
+                  judges = [j for j in jobs['jobs'] if j.get('name') == 'rewardguard'
+                            or j.get('name', '').endswith(' / rewardguard')]
+                  require(len(judges) == 1 and judges[0].get('conclusion') == verdict, 'Canary judge outcome mismatch')
+                  steps = judges[0]['steps']
+                  for name in ('Record candidate execution evidence', 'Upload candidate execution evidence'):
+                      require(sum(s.get('name') == name and s.get('conclusion') == 'success' for s in steps) == 1,
+                              'Canary execution evidence recording/upload did not succeed')
+                  require(all(s.get('conclusion') in ('success', 'skipped')
+                              or (s.get('name') == 'Judge the diff' and failed and s.get('conclusion') == 'failure')
+                              for s in steps), 'Unexpected canary step failure')
+                  return report
+
+              first, replay = report_for(receipt['initial']), report_for(receipt['replay'])
+              require(tuple(receipt['initial'][k] for k in ('run_id', 'attempt'))
+                      != tuple(receipt['replay'][k] for k in ('run_id', 'attempt')),
+                      'First and replay must be distinct run attempts')
+              rows = first['content']['coverage']
+              evaluated = [r for r in rows if r.get('status') == 'evaluated']
+              probabilities = [r.get('probability') for r in evaluated]
+              require(all(type(p) in (int, float) and math.isfinite(p) and 0 <= p <= 1 for p in probabilities)
+                      and any(p < .6 for p in probabilities) and any(.6 <= p < .8 for p in probabilities)
+                      and any(p >= .8 for p in probabilities), 'Canary must cover clean, warning and failure results')
+              findings = [f for f in first['findings'] if f.get('source') == 'content']
+              require(any(f.get('severity') == 'warn' for f in findings)
+                      and any(f.get('severity') == 'fail' for f in findings)
+                      and all(any(r.get('rule') == f.get('rule') and r.get('file') == f.get('file')
+                                  and r.get('probability') == f.get('probability') for r in evaluated)
+                              for f in findings), 'Canary grades must retain their warning/failure findings')
+              require(type(first['content'].get('result_cache_hits')) is int
+                      and first['content']['result_cache_hits'] == 0
+                      and positive(replay['content'].get('result_cache_hits'))
+                      and not any(r.get('reused') for r in evaluated)
+                      and all(r.get('reused') is True for r in replay['content']['coverage'] if r.get('status') == 'evaluated'),
+                      'Expected first-run miss and completed-record replay')
+              def coverage(report):
+                  return [{k: v for k, v in row.items() if k != 'reused'} for row in report['content']['coverage']]
+              require(coverage(first) == coverage(replay) and first['findings'] == replay['findings']
+                      and all(f.get('details') for f in first['findings'] if f.get('source') == 'content'),
+                      'Replayed scopes/probabilities/findings/explanations differ')
+              def usage(report):
+                  phase = report.get('usage', {}).get('content', {})
+                  counters = phase.get('attempts', 0), phase.get('explanations', {}).get('invocations', 0)
+                  require(all(type(value) is int and value >= 0 for value in counters), 'Invalid usage counters')
+                  return counters
+              attempts, explanations = usage(first)
+              require(positive(attempts) and positive(explanations) and usage(replay) == (0, 0),
+                      'First must evaluate/explain; completed replay must not regrade/re-explain')
+              return receipt['previous_channel']
+
+          try:
+              previous_channel = acceptance()
+          except (KeyError, TypeError, ValueError, AttributeError, zipfile.BadZipFile) as error:
+              raise SystemExit('Malformed candidate acceptance evidence: ' + type(error).__name__) from error
+
           # Tags take precedence over branches in uses:, so reject a shadowing tag.
           try:
               api(prefix + '/git/ref/tags/v0')
           except urllib.error.HTTPError as error:
               if error.code != 404:
                   raise
+              error.close()
           else:
               raise SystemExit('A v0 tag shadows the managed branch; resolve it before publication')
           if api(prefix + '/git/ref/heads/main')['object']['sha'] != candidate:
               print('Main advanced during release validation; skip this candidate.')
               raise SystemExit(0)
-          try:
-              current = api(prefix + '/git/ref/heads/v0')['object']['sha']
-          except urllib.error.HTTPError as error:
-              if error.code != 404:
-                  raise
-              api(prefix + '/git/refs', 'POST', {'ref': 'refs/heads/v0', 'sha': candidate})
-          else:
-              if current != candidate:
-                  # Fast-forward only: a stale run cannot roll the channel backward.
-                  api(prefix + '/git/refs/heads/v0', 'PATCH', {'sha': candidate, 'force': False})
+          require(protection() == protected, 'Channel protections changed during candidate validation')
+          current = api(prefix + '/git/ref/heads/v0')['object']['sha']
+          require(current in (previous_channel, candidate), 'Channel changed since reviewed acceptance')
+          require(api(prefix + '/git/ref/heads/main')['object']['sha'] == candidate,
+                  'Main changed immediately before publication')
+          if current != candidate:
+              api(prefix + '/git/refs/heads/v0', 'PATCH', {'sha': candidate, 'force': False})
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
               summary.write(f'Published workflows@v0 -> `{candidate}` using RewardGuard '
                             f'`{version}` at `{release_sha}`.\n')
